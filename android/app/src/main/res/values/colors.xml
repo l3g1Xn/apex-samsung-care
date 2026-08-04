@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="apex_bg">#07080A</color>
+    <color name="apex_primary">#3ECFBF</color>
+    <color name="apex_fg">#EEF1F4</color>
+    <color name="apex_muted">#8B959E</color>
+    <color name="apex_widget_bg">#CC101214</color>
+    <color name="apex_widget_stroke">#663ECFBF</color>
+    <color name="apex_clean_bg">#3ECFBF</color>
+    <color name="apex_clean_fg">#041312</color>
+</resources>
