@@ -10,8 +10,8 @@ android {
         applicationId "com.apexcare.app"
         minSdk 26
         targetSdk 34
-        versionCode 14
-        versionName "0.1.4-beta"
+        versionCode 15
+        versionName "0.1.5-beta"
     }
 
     buildTypes {

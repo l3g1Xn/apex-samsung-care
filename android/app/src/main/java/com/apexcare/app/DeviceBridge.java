@@ -15,12 +15,11 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Native bridge: app inventory, memory stats, local heuristic security scan. */
+/** Native bridge: app inventory, memory stats, local heuristic security scan, safe close. */
 public class DeviceBridge {
     private final Context context;
 
@@ -41,6 +40,31 @@ public class DeviceBridge {
             "android.permission.ACCESS_BACKGROUND_LOCATION",
             "android.permission.QUERY_ALL_PACKAGES",
     };
+
+    private static final Set<String> PROTECTED_PACKAGES = new HashSet<>();
+    static {
+        PROTECTED_PACKAGES.add("android");
+        PROTECTED_PACKAGES.add("com.android.systemui");
+        PROTECTED_PACKAGES.add("com.android.settings");
+        PROTECTED_PACKAGES.add("com.android.phone");
+        PROTECTED_PACKAGES.add("com.android.server.telecom");
+        PROTECTED_PACKAGES.add("com.android.providers.settings");
+        PROTECTED_PACKAGES.add("com.android.providers.media");
+        PROTECTED_PACKAGES.add("com.android.providers.contacts");
+        PROTECTED_PACKAGES.add("com.android.providers.telephony");
+        PROTECTED_PACKAGES.add("com.android.providers.downloads");
+        PROTECTED_PACKAGES.add("com.android.inputmethod.latin");
+        PROTECTED_PACKAGES.add("com.google.android.inputmethod.latin");
+        PROTECTED_PACKAGES.add("com.google.android.gms");
+        PROTECTED_PACKAGES.add("com.google.android.gsf");
+        PROTECTED_PACKAGES.add("com.android.permissioncontroller");
+        PROTECTED_PACKAGES.add("com.google.android.permissioncontroller");
+        PROTECTED_PACKAGES.add("com.android.networkstack");
+        PROTECTED_PACKAGES.add("com.android.bluetooth");
+        PROTECTED_PACKAGES.add("com.android.nfc");
+        PROTECTED_PACKAGES.add("com.android.keychain");
+        PROTECTED_PACKAGES.add("com.android.shell");
+    }
 
     public DeviceBridge(Context context) {
         this.context = context.getApplicationContext();
@@ -118,6 +142,54 @@ public class DeviceBridge {
         }
     }
 
+    /**
+     * Best-effort background kill. Third-party apps cannot force-stop like OEM Device Care;
+     * killBackgroundProcesses only affects own-UID processes on stock Android, but we still
+     * refuse protected packages so we never target core OS / telephony.
+     */
+    @JavascriptInterface
+    public String closeBackgroundApp(String packageName) {
+        try {
+            JSONObject result = new JSONObject();
+            result.put("packageName", packageName != null ? packageName : "");
+            if (packageName == null || packageName.isEmpty()) {
+                result.put("ok", false);
+                result.put("reason", "Missing package");
+                return result.toString();
+            }
+            if (packageName.equals(context.getPackageName())) {
+                result.put("ok", false);
+                result.put("reason", "This app");
+                return result.toString();
+            }
+            if (PROTECTED_PACKAGES.contains(packageName)
+                    || packageName.startsWith("com.android.providers.")
+                    || packageName.toLowerCase().contains("telecom")
+                    || packageName.toLowerCase().contains("telephony")) {
+                result.put("ok", false);
+                result.put("reason", "Protected · core OS");
+                return result.toString();
+            }
+            ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+            if (am != null) {
+                am.killBackgroundProcesses(packageName);
+            }
+            result.put("ok", true);
+            result.put("reason", "killBackgroundProcesses requested");
+            return result.toString();
+        } catch (Exception e) {
+            try {
+                JSONObject err = new JSONObject();
+                err.put("ok", false);
+                err.put("packageName", packageName != null ? packageName : "");
+                err.put("reason", e.getMessage() != null ? e.getMessage() : "close failed");
+                return err.toString();
+            } catch (Exception e2) {
+                return "{\"ok\":false}";
+            }
+        }
+    }
+
     @JavascriptInterface
     public String runHeuristicScan() {
         try {
@@ -126,6 +198,7 @@ public class DeviceBridge {
             JSONArray findings = new JSONArray();
             int packages = 0, userApps = 0, systemApps = 0, disabled = 0;
             int highRiskPermHits = 0, sideloaded = 0, debuggable = 0, outdatedTarget = 0;
+            int malwareSignals = 0, puaSignals = 0;
             long now = System.currentTimeMillis();
             long recentWindow = 72L * 60L * 60L * 1000L;
 
@@ -134,6 +207,8 @@ public class DeviceBridge {
             trusted.add("com.google.android.packageinstaller");
             trusted.add("com.samsung.android.packageinstaller");
             trusted.add("com.android.packageinstaller");
+            trusted.add("com.amazon.venezia");
+            trusted.add("com.sec.android.app.samsungapps");
             trusted.add(context.getPackageName());
 
             for (ApplicationInfo ai : apps) {
@@ -151,10 +226,13 @@ public class DeviceBridge {
 
                 if (!system && (ai.flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
                     debuggable++;
+                    malwareSignals++;
                     findings.put(finding("high", "Debuggable app",
-                            label + " is marked debuggable.", ai.packageName, 12));
+                            label + " is marked debuggable.", ai.packageName, 12, "malware"));
                 }
 
+                boolean unknown = false;
+                boolean untrusted = false;
                 if (!system) {
                     String installer = null;
                     try {
@@ -164,29 +242,44 @@ public class DeviceBridge {
                             installer = pm.getInstallerPackageName(ai.packageName);
                         }
                     } catch (Exception ignored) {}
-                    boolean unknown = installer == null || installer.isEmpty();
-                    boolean untrusted = !unknown && !trusted.contains(installer);
+                    unknown = installer == null || installer.isEmpty();
+                    untrusted = !unknown && !trusted.contains(installer);
                     if (unknown || untrusted) {
                         sideloaded++;
-                        findings.put(finding("medium",
+                        puaSignals++;
+                        findings.put(finding(unknown ? "high" : "medium",
                                 unknown ? "Unknown installer" : "Non-store installer",
                                 label + (unknown ? " has no recorded installer."
                                         : " installed by " + installer + "."),
-                                ai.packageName, unknown ? 6 : 5));
+                                ai.packageName, unknown ? 10 : 5, "pua"));
+                    }
+
+                    String lowerName = label.toLowerCase();
+                    String lowerPkg = ai.packageName.toLowerCase();
+                    if (lowerName.contains("cleaner") || lowerName.contains("booster")
+                            || lowerName.contains("speed up") || lowerName.contains("ram booster")
+                            || lowerPkg.contains(".cleaner") || lowerPkg.contains(".booster")
+                            || lowerPkg.contains("sideload")) {
+                        puaSignals++;
+                        findings.put(finding("high", "Potentially unwanted app pattern",
+                                label + " matches known PUA cleaner/booster naming.",
+                                ai.packageName, 12, "pua"));
                     }
                 }
 
                 if (!system && ai.targetSdkVersion > 0 && ai.targetSdkVersion < 26) {
                     outdatedTarget++;
-                    findings.put(finding("low", "Outdated target SDK",
+                    findings.put(finding("medium", "Outdated target SDK",
                             label + " targets API " + ai.targetSdkVersion + ".",
-                            ai.packageName, 3));
+                            ai.packageName, 5, "risk"));
                 }
 
                 if (!system && pi != null && pi.firstInstallTime > 0
-                        && (now - pi.firstInstallTime) < recentWindow) {
-                    findings.put(finding("info", "Recently installed",
-                            label + " installed within 72 hours.", ai.packageName, 1));
+                        && (now - pi.firstInstallTime) < recentWindow
+                        && (unknown || untrusted)) {
+                    findings.put(finding("info", "Recently sideloaded",
+                            label + " installed within 72 hours from non-store source.",
+                            ai.packageName, 2, "info"));
                 }
 
                 if (!system && pi != null && pi.requestedPermissions != null) {
@@ -196,18 +289,33 @@ public class DeviceBridge {
                             if (s.equals(perm)) { hits.add(shortPerm(perm)); break; }
                         }
                     }
-                    if (hits.size() >= 3) {
+                    boolean hasInstall = hits.contains("REQUEST_INSTALL_PACKAGES");
+                    boolean hasAdmin = hits.contains("BIND_DEVICE_ADMIN");
+                    boolean hasA11y = hits.contains("BIND_ACCESSIBILITY_SERVICE");
+                    boolean hasOverlay = hits.contains("SYSTEM_ALERT_WINDOW");
+                    int critical = 0;
+                    if (hasInstall) critical++;
+                    if (hasAdmin) critical++;
+                    if (hasA11y) critical++;
+                    if (hasOverlay) critical++;
+
+                    if (critical >= 2 || (critical >= 1 && unknown)) {
                         highRiskPermHits++;
+                        malwareSignals++;
+                        findings.put(finding("high", "Malware-capable permission set",
+                                label + " requests: " + join(hits, ", "),
+                                ai.packageName, 13, "malware"));
+                    } else if (hits.size() >= 3) {
+                        highRiskPermHits++;
+                        puaSignals++;
                         findings.put(finding("medium", "Elevated permission set",
                                 label + " requests: " + join(hits, ", "),
-                                ai.packageName, Math.min(10, 2 + hits.size())));
-                    } else if (hits.contains("REQUEST_INSTALL_PACKAGES")
-                            || hits.contains("BIND_DEVICE_ADMIN")
-                            || hits.contains("BIND_ACCESSIBILITY_SERVICE")) {
+                                ai.packageName, Math.min(10, 2 + hits.size()), "risk"));
+                    } else if (hasInstall || hasAdmin || hasA11y) {
                         highRiskPermHits++;
                         findings.put(finding("high", "High-impact permission",
                                 label + " requests: " + join(hits, ", "),
-                                ai.packageName, 10));
+                                ai.packageName, 10, "risk"));
                     }
                 }
             }
@@ -219,7 +327,7 @@ public class DeviceBridge {
             if (disabled > 15) {
                 score -= 4;
                 findings.put(finding("info", "Many disabled packages",
-                        disabled + " packages are disabled.", null, 0));
+                        disabled + " packages are disabled.", null, 0, "info"));
             }
             score = Math.max(12, Math.min(99, score));
 
@@ -242,9 +350,11 @@ public class DeviceBridge {
             result.put("debuggable", debuggable);
             result.put("highRiskPermHits", highRiskPermHits);
             result.put("outdatedTarget", outdatedTarget);
+            result.put("malwareSignals", malwareSignals);
+            result.put("puaSignals", puaSignals);
             result.put("findingCount", ordered.length());
             result.put("findings", ordered);
-            result.put("method", "local-heuristic");
+            result.put("method", "local-heuristic-v2");
             return result.toString();
         } catch (Exception e) {
             return errorJson(e);
@@ -273,13 +383,14 @@ public class DeviceBridge {
     }
 
     private static JSONObject finding(String severity, String title, String detail,
-                                     String packageName, int weight) throws Exception {
+                                     String packageName, int weight, String kind) throws Exception {
         JSONObject o = new JSONObject();
         o.put("severity", severity);
         o.put("title", title);
         o.put("detail", detail);
         o.put("packageName", packageName != null ? packageName : JSONObject.NULL);
         o.put("weight", weight);
+        o.put("kind", kind != null ? kind : "risk");
         return o;
     }
 
@@ -316,6 +427,10 @@ public class DeviceBridge {
         row.put("lastUpdateTime", lastUpdate);
         row.put("uid", ai.uid);
         row.put("targetSdk", ai.targetSdkVersion);
+        boolean closeable = !PROTECTED_PACKAGES.contains(ai.packageName)
+                && !ai.packageName.startsWith("com.android.providers.");
+        row.put("closeable", closeable);
+        row.put("protectReason", closeable ? "none" : "core_os");
         return row;
     }
 

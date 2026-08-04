@@ -1,25 +1,14 @@
-# Apex Care — Android
+# Apex Care Android
 
-Native shell for **v0.1.4-beta**.
+Native WebView shell + RAM widget + PackageManager bridge.
 
-## Modules
-
-- `MainActivity` — loads `assets/www/index.html`
-- `DeviceBridge` (`ApexNative`) — `scanInstalledApps()`, `runHeuristicScan()`, memory stats
-- `RamCleanerWidget` — resizable transparent RAM cleaner
-
-## Permissions
-
-- `INTERNET`
-- `QUERY_ALL_PACKAGES` (full package inventory on Android 11+)
-
-## Build
-
-Requires JDK 17+, Android SDK platform 34, build-tools 34.
+- Package: `com.apexcare.app`
+- Version: `0.1.5-beta` (versionCode 15)
+- Min SDK 26 / target 34
 
 ```bash
 echo "sdk.dir=$ANDROID_HOME" > local.properties
 ./gradlew assembleRelease
 ```
 
-Output: `app/build/outputs/apk/release/app-release.apk`
+`DeviceBridge` exposes: `getMemoryStats`, `scanInstalledApps`, `runHeuristicScan`, `closeBackgroundApp` (protect-aware).
