@@ -1,0 +1,25 @@
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/*.jks
+android/*.keystore
+*.apk
+*.aab
+*.dex
+*.class
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Node (if web tree added later)
+node_modules/
+dist/
+.output/
+.nitro/
+.tanstack/
