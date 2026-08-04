@@ -17,7 +17,7 @@
     button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
     button:disabled { opacity: .45; cursor: not-allowed; }
     .app { max-width: 28rem; margin: 0 auto; min-height: 100dvh; padding-bottom: 5.25rem; }
-    header { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); padding: .75rem 1rem; }
+    header { position: sticky; top: 0; z-index: 20; background: rgba(7,8,10,0.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); padding: .75rem 1rem; }
     header .row { display: flex; justify-content: space-between; align-items: center; gap: .75rem; }
     .eyebrow { font-size: 11px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin: 0; }
     h1 { font-size: 1.125rem; margin: 0; font-weight: 600; letter-spacing: -0.02em; }
@@ -61,7 +61,7 @@
     .chips { display: flex; gap: .375rem; overflow-x: auto; padding-bottom: 2px; }
     .chips button { flex-shrink: 0; border-radius: 999px; border: 1px solid var(--border); background: var(--elevated); color: var(--muted); padding: .375rem .75rem; font-size: 12px; font-weight: 500; }
     .chips button.on { border-color: #3ecfbf66; background: #3ecfbf22; color: var(--primary); }
-    nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 30; background: color-mix(in srgb, var(--surface) 96%, transparent); backdrop-filter: blur(10px); border-top: 1px solid var(--border); padding: .35rem .25rem max(.5rem, env(safe-area-inset-bottom)); }
+    nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 30; background: rgba(16,18,20,0.96); backdrop-filter: blur(10px); border-top: 1px solid var(--border); padding: .35rem .25rem max(.5rem, env(safe-area-inset-bottom)); }
     nav .inner { max-width: 28rem; margin: 0 auto; display: flex; }
     nav button { flex: 1; min-width: 0; min-height: 3rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: transparent; color: var(--faint); font-size: 10px; font-weight: 500; }
     nav button.on { color: var(--primary); }
@@ -74,8 +74,8 @@
     .progress { height: 8px; background: var(--subtle); border-radius: 999px; overflow: hidden; }
     .progress > i { display: block; height: 100%; background: var(--primary); width: 0; transition: width .25s; }
     /* Widget-aligned RAM cleaner */
-    .widget-shell { border-radius: 1rem; border: 1px solid #3ecfbf33; background: color-mix(in srgb, var(--bg) 80%, transparent); padding: .75rem; }
-    .widget-inner { display: flex; align-items: center; justify-content: space-between; gap: .75rem; border-radius: .75rem; border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 70%, transparent); padding: .75rem .9rem; }
+    .widget-shell { border-radius: 1rem; border: 1px solid #3ecfbf33; background: rgba(7,8,10,0.9); padding: .75rem; }
+    .widget-inner { display: flex; align-items: center; justify-content: space-between; gap: .75rem; border-radius: .75rem; border: 1px solid var(--border); background: rgba(16,18,20,0.85); padding: .75rem .9rem; }
     .widget-title { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--primary); }
     .widget-ram { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
     .widget-storage { font-size: 11px; color: var(--muted); margin-top: 2px; }
@@ -122,7 +122,7 @@ const state = {
   score: 72,
   history: [],
   closing: false,
-  autoSchedule: localStorage.getItem("apex.autoSchedule") || "off",
+  autoSchedule: (function(){ try { return localStorage.getItem("apex.autoSchedule") || "off"; } catch (e) { return "off"; } })(),
   safe: {
     scanning: false, ok: false, error: null, score: null, scannedAt: null,
     findings: [], stats: null, progress: 0, phase: "",
@@ -147,7 +147,10 @@ function fmtGb(n) {
   return n.toFixed(1) + " GB";
 }
 function escapeHtml(s) {
-  return String(s == null ? "" : s).replace(/&/g,"&").replace(/</g,"<").replace(/"/g,""");
+  return String(s == null ? "" : s)
+    .split("&").join("&" + "amp;")
+    .split("<").join("&" + "lt;")
+    .split('"').join("&" + "quot;");
 }
 function isProtected(pkg) {
   if (!pkg) return true;
@@ -590,8 +593,16 @@ window.AC = {
   },
 };
 
-loadMemory();
-scanApps();
+try {
+  loadMemory();
+  scanApps();
+  if (!document.getElementById("app").innerHTML) render();
+} catch (err) {
+  var el = document.getElementById("app");
+  if (el) {
+    el.innerHTML = "<div style=\"padding:24px;color:#eef1f4;font-family:system-ui\"><h1 style=\"color:#3ecfbf\">Apex Care</h1><p>UI failed to start.</p><pre style=\"white-space:pre-wrap;color:#e07a7a;font-size:12px\">" + String(err && err.stack || err) + "</pre></div>";
+  }
+}
 </script>
 </body>
 </html>
