@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#07080a"/>
+<title>Apex Care v0.1.4 beta</title>
+<style>
+:root{--bg:#07080a;--surface:#101214;--elevated:#161a1e;--subtle:#1c2228;--fg:#eef1f4;--muted:#8b959e;--faint:#5c6670;--border:#252b32;--primary:#3ecfbf;--primary-fg:#041312;--warn:#e8b86d;--danger:#e07a7a;--ok:#5ecf8a;--info:#6eb0e0}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,sans-serif}
+button{font:inherit;cursor:pointer;border:0}button:disabled{opacity:.45}
+.app{max-width:28rem;margin:0 auto;min-height:100dvh;padding-bottom:5.25rem}
+header{position:sticky;top:0;z-index:20;background:#07080aee;backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:.75rem 1rem}
+header .row{display:flex;justify-content:space-between;align-items:center}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0}
+h1{font-size:1.125rem;margin:0;font-weight:600}.badge{border-radius:999px;border:1px solid #3ecfbf55;background:#3ecfbf18;color:var(--primary);font-size:11px;padding:.25rem .65rem}
+main{padding:1rem;display:flex;flex-direction:column;gap:1rem}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:1rem;padding:1rem}.center{text-align:center}
+.ring-wrap{display:flex;justify-content:center}.ring{position:relative;width:160px;height:160px}.ring svg{transform:rotate(-90deg);width:100%;height:100%}
+.ring .mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .score{font-size:2.25rem;font-weight:600}.ring .lbl{font-size:12px;color:var(--muted)}.ring .sub{font-size:11px;color:var(--faint)}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:2.75rem;padding:0 1rem;border-radius:.5rem;font-size:.875rem;font-weight:500;width:100%}
+.btn-primary{background:var(--primary);color:var(--primary-fg)}.btn-secondary{background:var(--elevated);color:var(--fg);border:1px solid var(--border)}
+.btn-sm{height:2.25rem;font-size:12px;padding:0 .75rem;width:auto}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.stat{text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:1rem;padding:.875rem}
+.stat .t{font-size:11px;color:var(--faint)}.stat .v{font-size:1.05rem;font-weight:600}.stat .s{font-size:11px;color:var(--muted)}
+.bar{height:6px;background:var(--subtle);border-radius:999px;overflow:hidden;margin-top:.55rem}.bar>i{display:block;height:100%;background:var(--primary)}
+.muted{color:var(--muted);font-size:.75rem;line-height:1.5}.faint{color:var(--faint);font-size:11px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:.75rem}.list{display:flex;flex-direction:column;gap:.5rem}
+.item{background:var(--surface);border:1px solid var(--border);border-radius:1rem;padding:.875rem}
+.avatar{width:2.4rem;height:2.4rem;border-radius:.7rem;background:var(--elevated);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--primary);flex-shrink:0}
+.chip{display:inline-flex;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:500}
+.chip-sys{background:var(--elevated);color:var(--faint)}.chip-user{background:#3ecfbf22;color:var(--primary)}.chip-off{background:#e07a7a22;color:var(--danger)}
+.chip-high{background:#e07a7a22;color:var(--danger)}.chip-med{background:#e8b86d22;color:var(--warn)}.chip-low{background:#3ecfbf22;color:var(--primary)}.chip-info{background:#6eb0e022;color:var(--info)}
+.chips{display:flex;gap:.375rem;overflow-x:auto}.chips button{flex-shrink:0;border-radius:999px;border:1px solid var(--border);background:var(--elevated);color:var(--muted);padding:.375rem .75rem;font-size:12px}
+.chips button.on{border-color:#3ecfbf66;background:#3ecfbf22;color:var(--primary)}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:#101214f5;backdrop-filter:blur(10px);border-top:1px solid var(--border);padding:.35rem .25rem max(.5rem,env(safe-area-inset-bottom))}
+nav .inner{max-width:28rem;margin:0 auto;display:flex}
+nav button{flex:1;min-height:3rem;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--faint);font-size:10px;font-weight:500}
+nav button.on{color:var(--primary)}
+.search{position:relative}.search input{width:100%;height:2.75rem;border-radius:.75rem;border:1px solid var(--border);background:var(--elevated);color:var(--fg);padding:0 .75rem 0 2.4rem;font-size:.875rem;outline:none}
+.search span{position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:var(--faint)}
+.mono{font-family:ui-monospace,monospace;font-size:10px;color:var(--faint);word-break:break-all}
+h2{font-size:.875rem;font-weight:600;margin:0 0 .5rem}.mt{margin-top:.75rem}
+.progress{height:8px;background:var(--subtle);border-radius:999px;overflow:hidden}.progress>i{display:block;height:100%;background:var(--primary);width:0;transition:width .25s}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script>
+const VERSION="v0.1.4 beta";
+const hasNative=typeof ApexNative!=="undefined";
+const state={tab:"home",apps:[],scanOk:false,scanError:null,scanning:false,scannedAt:null,filter:"all",q:"",mem:null,score:72,
+safe:{scanning:false,ok:false,error:null,score:null,scannedAt:null,findings:[],stats:null,progress:0,phase:""},findingFilter:"all"};
+function tone(s){return s>=80?"var(--ok)":s>=55?"var(--primary)":s>=35?"var(--warn)":"var(--danger)"}
+function sevChip(s){return s==="high"?"chip-high":s==="medium"?"chip-med":s==="low"?"chip-low":"chip-info"}
+function fmtGb(n){return n==null||isNaN(n)?"—":n.toFixed(1)+" GB"}
+function computeHealthScore(){const m=state.mem;if(!m)return 72;let s=100;if(m.totalRamGb>0){const u=((m.totalRamGb-m.freeRamGb)/m.totalRamGb)*100;s-=Math.min(35,u*.35)}if(m.lowMemory)s-=12;if(state.safe.score!=null)s=s*.75+state.safe.score*.25;return Math.round(Math.min(99,Math.max(18,s)))}
+function loadMemory(){if(!hasNative)return;try{state.mem=JSON.parse(ApexNative.getMemoryStats());state.score=computeHealthScore()}catch(e){}}
+function scanApps(){if(!hasNative){state.scanOk=false;state.scanError="Open Apex Care from the installed APK to scan real packages.";state.apps=[];render();return}
+state.scanning=true;state.scanError=null;render();
+setTimeout(()=>{try{const data=JSON.parse(ApexNative.scanInstalledApps());if(data.ok){state.apps=data.apps||[];state.scanOk=true;state.scannedAt=data.scannedAt||Date.now();state.scanError=null}else{state.apps=[];state.scanOk=false;state.scanError=data.error||"Scan failed"}}catch(e){state.scanOk=false;state.scanError=String(e.message||e);state.apps=[]}state.scanning=false;state.score=computeHealthScore();render()},40)}
+function runSafeScan(){if(!hasNative){state.safe.ok=false;state.safe.error="Heuristic scanner requires the installed APK.";state.safe.findings=[];render();return}
+state.safe.scanning=true;state.safe.error=null;state.safe.progress=12;state.safe.phase="Enumerating packages…";render();
+const steps=[[28,"Checking install sources…"],[48,"Reviewing permissions…"],[68,"Flagging debuggable & outdated targets…"],[88,"Scoring findings…"]];let i=0;
+const tick=()=>{if(i<steps.length){state.safe.progress=steps[i][0];state.safe.phase=steps[i][1];i++;render();setTimeout(tick,220);return}
+try{const data=JSON.parse(ApexNative.runHeuristicScan());if(data.ok){state.safe.ok=true;state.safe.score=data.score;state.safe.scannedAt=data.scannedAt||Date.now();state.safe.findings=data.findings||[];state.safe.stats={packages:data.packages,userApps:data.userApps,systemApps:data.systemApps,disabled:data.disabled,sideloaded:data.sideloaded,debuggable:data.debuggable,highRiskPermHits:data.highRiskPermHits,outdatedTarget:data.outdatedTarget,findingCount:data.findingCount};state.safe.error=null}else{state.safe.ok=false;state.safe.error=data.error||"Scan failed";state.safe.findings=[]}}catch(e){state.safe.ok=false;state.safe.error=String(e.message||e);state.safe.findings=[]}
+state.safe.scanning=false;state.safe.progress=100;state.safe.phase="Done";state.score=computeHealthScore();render()};setTimeout(tick,180)}
+function ring(score,label,sub){const r=74,c=2*Math.PI*r,off=c-(score/100)*c;return `<div class="ring-wrap"><div class="ring"><svg viewBox="0 0 160 160"><circle cx="80" cy="80" r="${r}" fill="none" stroke="var(--subtle)" stroke-width="10"/><circle cx="80" cy="80" r="${r}" fill="none" stroke="${tone(score)}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}"/></svg><div class="mid"><div class="score">${score}</div><div class="lbl">${label}</div><div class="sub">${sub}</div></div></div></div>`}
+function escapeHtml(s){return String(s==null?"":s).replace(/&/g,"&").replace(/</g,"<").replace(/"/g,""")}
+function home(){const m=state.mem;const freeRam=m?fmtGb(m.freeRamGb):"—";const ramPct=m&&m.totalRamGb?Math.round(((m.totalRamGb-m.freeRamGb)/m.totalRamGb)*100):0;const userCount=state.apps.filter(a=>!a.system).length;const totalCount=state.apps.length;const safeScore=state.safe.score;const healthSub=state.score>=80?"Running smoothly":state.score>=55?"Needs attention":"Heavy load";
+return `<div class="card center">${ring(state.score,"Health",healthSub)}<button class="btn btn-primary mt" onclick="window.AC.refreshAll()">Refresh device stats</button></div>
+<div class="grid2"><div class="stat"><div class="t">Free RAM</div><div class="v">${freeRam}</div><div class="s">${m?Math.round(m.totalRamGb)+" GB total":"—"}</div><div class="bar"><i style="width:${100-ramPct}%"></i></div></div>
+<button class="stat" onclick="window.AC.tab('safe')" style="text-align:left;width:100%"><div class="t">Safe score</div><div class="v">${safeScore!=null?safeScore:"—"}</div><div class="s">${state.safe.ok?(state.safe.findings.length+" findings"):"Tap to scan"}</div><div class="bar"><i style="width:${safeScore!=null?safeScore:0}%"></i></div></button></div>
+<div class="card"><div class="row"><h2 style="margin:0">Installed apps</h2><button class="btn btn-sm btn-secondary" ${state.scanning?"disabled":""} onclick="window.AC.scan()">${state.scanning?"Scanning…":"Scan device"}</button></div>
+<p class="muted mt" style="margin-bottom:0">${state.scanOk?`Found <strong style="color:var(--fg)">${totalCount}</strong> packages · <strong style="color:var(--primary)">${userCount}</strong> user apps.`:(state.scanError||"Tap Scan device to list packages on this phone.")}</p></div>`}
+function safePanel(){const s=state.safe;const ff=state.findingFilter;let findings=s.findings.slice();if(ff!=="all")findings=findings.filter(f=>f.severity===ff);const sub=s.score==null?"Not scanned yet":s.score>=80?"Looking solid":s.score>=55?"Review findings":"Elevated risk signals";
+return `<div class="card center">${s.score!=null?ring(s.score,"Safe",sub):`<div class="ring-wrap"><div class="ring" style="display:flex;align-items:center;justify-content:center"><div class="mid"><div class="lbl">Safe</div><div class="sub">Local heuristics</div></div></div></div>`}
+<p class="muted" style="margin:.5rem 0 0">On-device scan — install sources, permissions, debuggable flags, target SDK. No cloud malware DB.</p>
+<button class="btn btn-primary mt" ${s.scanning?"disabled":""} onclick="window.AC.safeScan()">${s.scanning?s.phase:(s.ok?"Scan again":"Run heuristic scan")}</button>
+${s.scanning?`<div class="progress mt"><i style="width:${s.progress}%"></i></div><p class="faint" style="margin:.4rem 0 0">${s.progress}%</p>`:""}
+${s.error?`<p class="muted mt" style="color:var(--danger)">${escapeHtml(s.error)}</p>`:""}
+${s.scannedAt&&!s.scanning?`<p class="faint mt">Last scan ${new Date(s.scannedAt).toLocaleString()}</p>`:""}</div>
+${s.stats?`<div class="grid2"><div class="stat"><div class="t">Packages</div><div class="v">${s.stats.packages}</div><div class="s">${s.stats.userApps} user · ${s.stats.systemApps} system</div></div><div class="stat"><div class="t">Signals</div><div class="v">${s.stats.findingCount}</div><div class="s">${s.stats.sideloaded} sideload · ${s.stats.debuggable} debug</div></div></div>`:""}
+${s.ok?`<div class="chips">${[["all","All"],["high","High"],["medium","Medium"],["low","Low"],["info","Info"]].map(([id,l])=>`<button class="${ff===id?"on":""}" onclick="window.AC.setFindingFilter('${id}')">${l}</button>`).join("")}</div>
+<div class="list">${findings.length===0?`<div class="card center muted">No findings in this filter.</div>`:findings.map(f=>`<div class="item"><div style="display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;margin-bottom:.25rem"><strong style="font-size:.875rem">${escapeHtml(f.title)}</strong><span class="chip ${sevChip(f.severity)}">${escapeHtml(f.severity)}</span></div><p class="muted" style="margin:0">${escapeHtml(f.detail)}</p>${f.packageName?`<div class="mono mt">${escapeHtml(f.packageName)}</div>`:""}</div>`).join("")}</div>`:(s.scanning?"":`<div class="card muted">Run a scan to populate findings. Heuristics are signals, not confirmed malware.</div>`)}`}
+function appsPanel(){let list=state.apps.slice();const f=state.filter;const q=state.q.trim().toLowerCase();if(f==="user")list=list.filter(a=>!a.system);if(f==="system")list=list.filter(a=>a.system);if(f==="disabled")list=list.filter(a=>!a.enabled);if(q)list=list.filter(a=>(a.name||"").toLowerCase().includes(q)||(a.packageName||"").toLowerCase().includes(q));
+return `<div class="card"><h2>App inventory</h2><p class="muted">Live list from this device’s package manager.</p>
+<div class="search mt"><span>⌕</span><input type="search" placeholder="Search name or package" value="${escapeHtml(state.q||"")}" oninput="window.AC.setQ(this.value)"/></div>
+<div class="chips mt">${[["all","All"],["user","User"],["system","System"],["disabled","Disabled"]].map(([id,l])=>`<button class="${f===id?"on":""}" onclick="window.AC.setFilter('${id}')">${l}</button>`).join("")}</div>
+<div class="row mt"><span class="faint">${list.length} shown · ${state.apps.length} scanned</span><button class="btn btn-sm btn-secondary" ${state.scanning?"disabled":""} onclick="window.AC.scan()">${state.scanning?"Scanning…":"Rescan"}</button></div></div>
+<div class="list">${!state.scanOk&&!state.scanning?`<div class="card center muted">${state.scanError||"Scan the device to load apps."}</div>`:""}${state.scanning?`<div class="card center muted">Scanning…</div>`:""}${list.map(a=>`<div class="item"><div style="display:flex;gap:.75rem"><div class="avatar">${(a.name||"?").slice(0,2).toUpperCase()}</div><div style="min-width:0;flex:1"><div style="display:flex;flex-wrap:wrap;gap:.35rem;align-items:center"><strong style="font-size:.875rem">${escapeHtml(a.name||a.packageName)}</strong>${a.system?'<span class="chip chip-sys">System</span>':'<span class="chip chip-user">User</span>'}${!a.enabled?'<span class="chip chip-off">Disabled</span>':''}</div><div class="mono">${escapeHtml(a.packageName||"")}</div><div class="faint" style="margin-top:.25rem">${a.versionName?"v"+escapeHtml(a.versionName):""}</div></div></div></div>`).join("")}</div>`}
+function morePanel(){return `<div class="card"><h2>RAM widget</h2><p class="muted">Long-press home → Widgets → <strong style="color:var(--fg)">Apex Care · RAM</strong>. Free RAM + Clean. Resize by long-pressing the widget.</p></div>
+<div class="card"><h2>About</h2><p class="muted">${VERSION}. Package + heuristic scans run on-device. Store UI removed. Native bridge: ${hasNative?"connected":"unavailable"}.</p></div>`}
+function render(){const tabs=[["home","Care"],["apps","Apps"],["safe","Safe"],["more","More"]];const body=state.tab==="home"?home():state.tab==="apps"?appsPanel():state.tab==="safe"?safePanel():morePanel();
+document.getElementById("app").innerHTML=`<header><div class="row"><div><p class="eyebrow">Apex Care</p><h1>Device Control</h1></div><div class="badge">${VERSION}</div></div></header><main>${body}</main><nav><div class="inner">${tabs.map(([id,label])=>`<button class="${state.tab===id?"on":""}" onclick="window.AC.tab('${id}')"><span>${label}</span></button>`).join("")}</div></nav>`}
+window.AC={tab(t){state.tab=t;if(t==="apps"&&!state.scanOk&&!state.scanning)scanApps();if(t==="safe"&&!state.safe.ok&&!state.safe.scanning)runSafeScan();render()},scan(){scanApps()},safeScan(){runSafeScan()},setFilter(f){state.filter=f;render()},setFindingFilter(f){state.findingFilter=f;render()},setQ(v){state.q=v;render();const el=document.querySelector('input[type=search]');if(el){el.focus();const n=el.value.length;el.setSelectionRange(n,n)}},refreshAll(){loadMemory();if(state.scanOk)scanApps();if(state.safe.ok)runSafeScan();else render()}};
+loadMemory();scanApps();
+</script>
+</body>
+</html>
