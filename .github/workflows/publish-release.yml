@@ -1,0 +1,56 @@
+name: Publish v0.1.4-beta Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reassemble APK from base64 chunks
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cat dist/apk-chunks/chunk_*.b64 | base64 -d > dist/ApexCare-v0.1.4-beta.apk
+          ls -lh dist/ApexCare-v0.1.4-beta.apk
+          file dist/ApexCare-v0.1.4-beta.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.4-beta
+          name: Apex Care v0.1.4 beta
+          draft: false
+          prerelease: true
+          fail_on_unmatched_files: true
+          files: dist/ApexCare-v0.1.4-beta.apk
+          body: |
+            ## Apex Care v0.1.4 beta
+
+            Installable Android APK for Apex Care.
+
+            ### Download
+            - **ApexCare-v0.1.4-beta.apk** (~4.3 MB)
+            - Package: `com.apexcare.app` · versionCode 14 · min SDK 26 · target SDK 34
+
+            ### Features
+            - Live health score (no fixed phone-model label)
+            - Real on-device PackageManager app inventory
+            - Safe local heuristic scanner (install source, permissions, debuggable, target SDK)
+            - Resizable transparent RAM cleaner widget
+            - Store section removed
+
+            ### Install
+            1. Download the APK on your phone
+            2. Allow install from unknown sources if prompted
+            3. Open **Apex Care**
+
+            Sideloaded / demo signing — not Play Store.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
