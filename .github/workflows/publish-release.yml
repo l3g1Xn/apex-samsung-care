@@ -1,4 +1,4 @@
-name: Publish v0.1.4-beta Release
+name: Publish Release
 
 on:
   workflow_dispatch:
@@ -10,85 +10,51 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v3
 
-      - name: Decode launcher icons
+      - name: Decode icons
         run: |
-          set -euo pipefail
           mkdir -p android/app/src/main/res/mipmap-hdpi android/app/src/main/res/mipmap-mdpi
-          if [ -f android/app/src/main/res/mipmap-hdpi/ic_launcher.png.b64 ]; then
-            base64 -d android/app/src/main/res/mipmap-hdpi/ic_launcher.png.b64 > android/app/src/main/res/mipmap-hdpi/ic_launcher.png
-          fi
-          if [ -f android/app/src/main/res/mipmap-mdpi/ic_launcher.png.b64 ]; then
-            base64 -d android/app/src/main/res/mipmap-mdpi/ic_launcher.png.b64 > android/app/src/main/res/mipmap-mdpi/ic_launcher.png
-          fi
-          if [ ! -f android/app/src/main/res/mipmap-hdpi/ic_launcher.png ]; then
-            python3 - <<'PY'
-from pathlib import Path
-p=bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082')
-Path('android/app/src/main/res/mipmap-hdpi').mkdir(parents=True, exist_ok=True)
-Path('android/app/src/main/res/mipmap-hdpi/ic_launcher.png').write_bytes(p)
-Path('android/app/src/main/res/mipmap-mdpi').mkdir(parents=True, exist_ok=True)
-Path('android/app/src/main/res/mipmap-mdpi/ic_launcher.png').write_bytes(p)
-PY
+          base64 -d android/app/src/main/res/mipmap-hdpi/ic_launcher.png.b64 > android/app/src/main/res/mipmap-hdpi/ic_launcher.png || true
+          base64 -d android/app/src/main/res/mipmap-mdpi/ic_launcher.png.b64 > android/app/src/main/res/mipmap-mdpi/ic_launcher.png || true
+          if [ ! -s android/app/src/main/res/mipmap-hdpi/ic_launcher.png ]; then
+            printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82' > android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+            cp android/app/src/main/res/mipmap-hdpi/ic_launcher.png android/app/src/main/res/mipmap-mdpi/ic_launcher.png
           fi
 
-      - name: Write local.properties
+      - name: local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.7"
+          gradle-version: '8.7'
 
-      - name: Build debug APK
+      - name: Build APK
         working-directory: android
-        run: |
-          gradle assembleDebug --no-daemon --stacktrace
-          ls -lh app/build/outputs/apk/debug/
+        run: gradle assembleDebug --no-daemon --stacktrace
 
-      - name: Stage release APK
+      - name: Stage APK
         run: |
           mkdir -p dist
           cp android/app/build/outputs/apk/debug/app-debug.apk dist/ApexCare-v0.1.4-beta.apk
           ls -lh dist/ApexCare-v0.1.4-beta.apk
 
-      - name: Create GitHub Release
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v0.1.4-beta
           name: Apex Care v0.1.4 beta
-          draft: false
           prerelease: true
-          fail_on_unmatched_files: true
           files: dist/ApexCare-v0.1.4-beta.apk
           body: |
-            ## Apex Care v0.1.4 beta
-
-            Installable Android APK (CI-built).
-
-            ### Download
-            - **ApexCare-v0.1.4-beta.apk**
-            - Package: `com.apexcare.app` · versionCode 14
-            - Min SDK 26 · Target SDK 34
-
-            ### Features
-            - Live health score (no fixed phone-model label)
-            - Real on-device PackageManager app inventory
-            - Safe local heuristic scanner
-            - Resizable transparent RAM cleaner widget
-            - Store section removed
-
-            Sideloaded / demo signing — not Play Store.
+            Apex Care v0.1.4 beta — package com.apexcare.app, versionCode 14.
+            On-device app scan, Safe heuristics, RAM widget. Store section removed.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
