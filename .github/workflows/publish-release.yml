@@ -87,13 +87,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.0
-          name: Apex Care v1.0.0 — Full Send Edition
+          name: Apex Care v1.0.0 - Full Send Edition
           prerelease: false
           make_latest: true
           files: dist/ApexCare-v1.0.0.apk
           fail_on_unmatched_files: true
           body: |
-            ## Apex Care v1.0.0 — Full Send Edition
+            ## Apex Care v1.0.0 - Full Send Edition
 
             Package `com.apexcare.app` · versionCode **18** · versionName **1.0.0**
 
