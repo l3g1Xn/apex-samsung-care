@@ -27,13 +27,15 @@ If that scares you, close the tab and go reinstall TikTok.
 
 ## Install (for people with working hands)
 
-1. Uninstall any older Apex Care build.
+1. **Uninstall any older Apex Care** (Settings → Apps → Apex Care → Uninstall). Required when the signing cert changes.
 2. Download **ApexCare-v1.0.0.apk** from [Releases](https://github.com/l3g1Xn/apex-samsung-care/releases).
-3. Allow install from that source. Hit install. Don't cry about "unknown sources."
+3. Allow install from that source. Install the **signed** universal APK.
 4. Open the app. Watch the flame logo. Tap **Grant Temporary Root** if Magisk/su is already on the device.
 5. Badge should read **v1.0.0**.
 
-**versionCode 18 · package `com.apexcare.app` · minSdk 26 / targetSdk 34**
+If Samsung says **"App not installed"**: you still have an old build, or you grabbed an unsigned APK. Uninstall first, then use the latest release asset only.
+
+**versionCode 18 · package `com.apexcare.app` · minSdk 24 / targetSdk 34 · signed v1+v2+v3 universal**
 
 ---
 

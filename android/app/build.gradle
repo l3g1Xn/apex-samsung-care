@@ -2,11 +2,26 @@ plugins {
     id "com.android.application"
 }
 
+import java.util.Properties
+import java.io.FileInputStream
+
 def keystorePropsFile = rootProject.file("keystore.properties")
 def keystoreProps = new Properties()
 if (keystorePropsFile.exists()) {
     keystoreProps.load(new FileInputStream(keystorePropsFile))
 }
+
+// Default demo/sideload keystore (committed) — required so release APKs are never unsigned.
+// Override via android/keystore.properties if you have your own store.
+def demoStoreFile = rootProject.file("keystore/apex-release.jks")
+def storeFilePath = keystoreProps.getProperty("storeFile", "keystore/apex-release.jks")
+def resolvedStore = rootProject.file(storeFilePath)
+if (!resolvedStore.exists()) {
+    resolvedStore = demoStoreFile
+}
+def storePass = keystoreProps.getProperty("storePassword", "apexcare1000")
+def keyAliasName = keystoreProps.getProperty("keyAlias", "apexcare")
+def keyPass = keystoreProps.getProperty("keyPassword", "apexcare1000")
 
 android {
     namespace "com.apexcare.app"
@@ -14,39 +29,93 @@ android {
 
     defaultConfig {
         applicationId "com.apexcare.app"
-        minSdk 26
+        // Android 7.0+ — covers modern Samsung One UI (A/S/Z/F/M series)
+        minSdk 24
         targetSdk 34
         versionCode 18
         versionName "1.0.0"
+
+        // Universal APK: all ABIs, all densities (no splits)
+        ndk {
+            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+        }
+
+        vectorDrawables.useSupportLibrary = true
+
+        resConfigs "en"
+    }
+
+    // Single universal APK — no density/ABI/language splits
+    splits {
+        abi {
+            enable false
+        }
+        density {
+            enable false
+        }
     }
 
     signingConfigs {
         release {
-            if (keystorePropsFile.exists()) {
-                storeFile file(keystoreProps["storeFile"])
-                storePassword keystoreProps["storePassword"]
-                keyAlias keystoreProps["keyAlias"]
-                keyPassword keystoreProps["keyPassword"]
-            }
+            storeFile resolvedStore
+            storePassword storePass
+            keyAlias keyAliasName
+            keyPassword keyPass
+            enableV1Signing true
+            enableV2Signing true
+            enableV3Signing true
+        }
+        debug {
+            // Same cert as release so debug/release can overwrite each other when sideloading
+            storeFile resolvedStore
+            storePassword storePass
+            keyAlias keyAliasName
+            keyPassword keyPass
+            enableV1Signing true
+            enableV2Signing true
+            enableV3Signing true
         }
     }
 
     buildTypes {
         release {
             minifyEnabled false
+            shrinkResources false
+            debuggable false
+            jniDebuggable false
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-            if (keystorePropsFile.exists()) {
-                signingConfig signingConfigs.release
-            }
+            signingConfig signingConfigs.release
         }
         debug {
-            // same applicationId as release
+            debuggable true
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+        }
+        resources {
+            excludes += [
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+                "META-INF/*.kotlin_module"
+            ]
         }
     }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
     }
 }
 

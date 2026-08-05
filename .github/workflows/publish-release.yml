@@ -25,20 +25,47 @@ jobs:
       - name: local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 
+      - name: Verify demo keystore present
+        run: |
+          test -f android/keystore/apex-release.jks
+          ls -la android/keystore/
+
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build release APK
+      - name: Build signed universal release APK
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Stage APK
+      - name: Stage + verify signature (must not be unsigned)
         run: |
-          set -e
+          set -euo pipefail
           mkdir -p dist
           SRC=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
           test -f "$SRC"
           cp "$SRC" dist/ApexCare-v1.0.0.apk
           ls -lh dist/ApexCare-v1.0.0.apk
+
+          # v1 jar signature check
+          jarsigner -verify -verbose -certs dist/ApexCare-v1.0.0.apk | tee /tmp/jsign.txt
+          grep -qi "jar verified" /tmp/jsign.txt
+
+          # Must have CERT.RSA / .SF
+          unzip -l dist/ApexCare-v1.0.0.apk | grep -E 'META-INF/.*\.(RSA|SF|MF)' | tee /tmp/meta.txt
+          test -s /tmp/meta.txt
+
+          # APK Signature Scheme v2/v3 block present
+          python3 - <<'PY'
+          data=open("dist/ApexCare-v1.0.0.apk","rb").read()
+          assert data.rfind(b"APK Sig Block 42") != -1, "missing APK Signature Scheme v2/v3 block"
+          print("APK Sig Block OK")
+          PY
+
+          # Prefer apksigner if SDK provides it
+          APKSIGNER=$(find "$ANDROID_HOME" -name apksigner 2>/dev/null | head -1 || true)
+          if [ -n "$APKSIGNER" ]; then
+            "$APKSIGNER" verify --verbose dist/ApexCare-v1.0.0.apk
+          fi
+          echo "SIGNED UNIVERSAL APK READY"
 
       - name: Recreate v1.0.0 release
         env:
@@ -48,7 +75,7 @@ jobs:
           gh release delete v1.0.0 --yes --cleanup-tag 2>/dev/null || true
           git push origin :refs/tags/v1.0.0 2>/dev/null || true
 
-      - name: Publish v1.0.0
+      - name: Publish v1.0.0 (signed)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.0
@@ -58,24 +85,25 @@ jobs:
           files: dist/ApexCare-v1.0.0.apk
           fail_on_unmatched_files: true
           body: |
-            ## Apex Care v1.0.0 — Full Send Edition
+            ## Apex Care v1.0.0 — Full Send Edition (signed universal)
 
             Package `com.apexcare.app` · versionCode **18** · versionName **1.0.0**
 
-            ### What's in this build
-            - Free-RAM % from multi-sample **MemAvailable** median
-            - Optimize / Clean with root `am force-stop` when Magisk/su grants access
-            - **Grant Temporary Root** in-app (no APK can auto-root on install)
-            - Running Apps & Processes + Safe heuristics + auto-close
-            - Resizable RAM widget (free % primary, ROOT badge, real Clean)
-            - Scaled bottom nav · flame splash · badge **v1.0.0**
+            ### Install fix
+            Previous CI artifact was **unsigned** — Samsung/Android reports **"App not installed"**.
+            This build is **signed (v1 + v2 + v3)** as a **universal APK** (all ABIs, no splits).
 
             ### Install
-            1. Uninstall any older Apex Care
-            2. Download **ApexCare-v1.0.0.apk** below
-            3. Allow unknown sources → install → open
+            1. **Uninstall any older Apex Care** first (required if signature changed)
+            2. Download **ApexCare-v1.0.0.apk**
+            3. Settings → allow install from this source → install
             4. Badge should read **v1.0.0**
 
-            Root is optional. Physics is not a participation trophy.
+            ### Compatibility
+            - minSdk **24** / targetSdk **34** (Samsung One UI A/S/Z/F/M series)
+            - Universal APK · hardware features optional · Multi-Window / aspect ratio meta
+            - Root optional (Magisk / KernelSU)
+
+            Demo signing cert is for sideload only — not Play Store.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -3,9 +3,12 @@ android/.gradle/
 android/build/
 android/app/build/
 android/local.properties
+# User-provided keystores (not the committed demo keystore)
 android/*.jks
 android/*.keystore
+!android/keystore/apex-release.jks
 android/keystore.properties
+!android/keystore.properties.example
 *.apk
 *.aab
 *.dex
@@ -21,7 +24,7 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Node (web preview tree, if ever added)
+# Node
 node_modules/
 .output/
 .nitro/

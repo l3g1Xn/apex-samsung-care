@@ -1,20 +1,19 @@
-# Apex Care — Android (v0.1.7-beta)
+# Apex Care — Android (v1.0.0)
 
-versionCode **17** · package `com.apexcare.app`
+versionCode **18** · package `com.apexcare.app` · minSdk **24** / targetSdk **34**
+
+## Signed universal APK
+
+Release builds **always** sign with `android/keystore/apex-release.jks` (v1 + v2 + v3).
+Unsigned APKs fail install on Samsung ("App not installed").
 
 ## Modules
 
 | Class | Role |
 |-------|------|
 | `MainActivity` | WebView + `ApexNative` bridge |
-| `DeviceBridge` | Accurate RAM, running processes + PSS, root `am force-stop`, Safe heuristics + auto-close |
-| `RamCleanerWidget` | Live free/total RAM widget with force Clean animation |
-
-## Force close
-
-1. Prefer root: `su` → `am force-stop <package>` + `kill -9 <pid>`
-2. Fallback: `ActivityManager.killBackgroundProcesses`
-3. Protected packages never closed
+| `DeviceBridge` | MemAvailable median RAM, root force-stop, Safe heuristics |
+| `RamCleanerWidget` | Free-% primary, ROOT badge, real Clean |
 
 ## Build
 
@@ -23,4 +22,10 @@ echo "sdk.dir=$ANDROID_HOME" > local.properties
 ./gradlew assembleRelease
 ```
 
-Output: `app/build/outputs/apk/release/app-release.apk`
+Output: `app/build/outputs/apk/release/app-release.apk` (signed)
+
+Verify:
+
+```bash
+jarsigner -verify -verbose -certs app/build/outputs/apk/release/app-release.apk
+```
