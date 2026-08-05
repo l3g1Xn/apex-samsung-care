@@ -32,21 +32,21 @@ jobs:
         run: |
           mkdir -p dist
           SRC=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
-          cp "$SRC" dist/ApexCare-v0.1.6-beta.apk
-          ls -lh dist/ApexCare-v0.1.6-beta.apk
+          cp "$SRC" dist/ApexCare-v0.1.7-beta.apk
+          ls -lh dist/ApexCare-v0.1.7-beta.apk
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.6-beta
-          name: Apex Care v0.1.6 beta
+          tag_name: v0.1.7-beta
+          name: Apex Care v0.1.7 beta
           prerelease: true
           make_latest: true
-          files: dist/ApexCare-v0.1.6-beta.apk
+          files: dist/ApexCare-v0.1.7-beta.apk
           body: |
-            ## Apex Care v0.1.6 beta
+            ## Apex Care v0.1.7 beta
 
-            Package `com.apexcare.app` · versionCode **16** · versionName **0.1.6-beta**
+            Package `com.apexcare.app` · versionCode **17** · versionName **0.1.7-beta**
 
             - Care health score + Optimize / Clean (non-vital background apps)
             - Protect rules for core OS / telephony / keyboard
@@ -54,6 +54,6 @@ jobs:
             - Apps inventory with pinned bottom nav
             - RAM widget: free/total RAM, disk free, process count, animated Clean
 
-            Install: uninstall older Apex Care → install this APK → badge **v0.1.6 beta**.
+            Install: uninstall older Apex Care → install this APK → badge **v0.1.7 beta**.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
