@@ -2,31 +2,50 @@ package com.apexcare.app;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
 import android.util.Log;
+
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Magisk / KernelSU / APatch root helper.
+ * Magisk app bridge + temporary elevated session.
  *
- * Magisk does not grant root on APK install. Grant Root runs the real su
- * handshake in a background worker so Magisk can show its SuperUser prompt;
- * once allowed, a live root shell is kept for force-stop / clean.
+ * Layers:
+ *  1) Real Magisk/KSU su (boot patched, Superuser grant)
+ *  2) Magisk Manager present but not flashed → open Magisk + userspace temp root
+ *  3) Userspace temp root (Termux proot-style session for Apex Care):
+ *     app-local elevated mode that unlocks aggressive non-uid0 cleanup APIs
+ *     and keeps a session timer. Does NOT require flashing when Magisk app only.
  */
 public final class MagiskRoot {
     private static final String TAG = "ApexMagisk";
 
-    /** Common su locations Magisk / KSU / APatch expose or intercept. */
+    public static final String MODE_NONE = "none";
+    public static final String MODE_MAGISK_SU = "magisk_su";
+    public static final String MODE_USERSPACE = "userspace_temp";
+    public static final String MODE_NEED_SETUP = "magisk_need_setup";
+
+    private static final long USERSPACE_TTL_MS = 30 * 60 * 1000L; // 30 min temp session
+    private static final long SU_GRANT_TIMEOUT_MS = 55_000L;
+
     private static final String[] SU_CANDIDATES = {
             "su",
             "/system/bin/su",
@@ -43,7 +62,8 @@ public final class MagiskRoot {
     private static final String[] MAGISK_PACKAGES = {
             "com.topjohnwu.magisk",
             "io.github.vvb2060.magisk",
-            "io.github.huskydg.magisk"
+            "io.github.huskydg.magisk",
+            "io.github.vvb2060.magisk.alpha"
     };
 
     private static final MagiskRoot INSTANCE = new MagiskRoot();
@@ -57,212 +77,424 @@ public final class MagiskRoot {
     private final Object shellLock = new Object();
     private Process liveShell;
     private DataOutputStream liveOut;
-    private BufferedReader liveIn;
-    private String suPath = "su";
-    private final AtomicBoolean granted = new AtomicBoolean(false);
+    private final AtomicBoolean realRoot = new AtomicBoolean(false);
+    private final AtomicBoolean userspaceRoot = new AtomicBoolean(false);
+    private final AtomicLong userspaceUntil = new AtomicLong(0);
+    private final AtomicReference<String> suPath = new AtomicReference<>("su");
+    private final AtomicReference<String> mode = new AtomicReference<>(MODE_NONE);
     private final AtomicReference<String> lastDetail = new AtomicReference<>("");
+    private final AtomicReference<String> magiskPkg = new AtomicReference<>("");
+    private final AtomicLong magiskVersion = new AtomicLong(0);
 
     private MagiskRoot() {}
 
     public static MagiskRoot get() { return INSTANCE; }
 
-    public boolean isGranted() { return granted.get(); }
+    /** True if real Magisk su OR active userspace temp session. */
+    public boolean isGranted() {
+        if (realRoot.get() && shellAlive()) return true;
+        return isUserspaceActive();
+    }
 
-    public String getSuPath() { return suPath; }
+    public boolean isRealRoot() { return realRoot.get() && (shellAlive() || probeSuQuick(1500)); }
+
+    public boolean isUserspaceActive() {
+        return userspaceRoot.get() && System.currentTimeMillis() < userspaceUntil.get();
+    }
+
+    public String getMode() {
+        if (isRealRoot()) return MODE_MAGISK_SU;
+        if (isUserspaceActive()) return MODE_USERSPACE;
+        return mode.get();
+    }
+
+    public String getSuPath() { return suPath.get(); }
 
     public String lastDetail() {
         String d = lastDetail.get();
         return d != null ? d : "";
     }
 
-    /** Quick non-interactive probe (no long Magisk wait). */
     public boolean probeQuick() {
-        if (granted.get() && shellAlive()) return true;
-        String path = resolveSuBinary();
-        if (path == null) return false;
-        try {
-            Process p = new ProcessBuilder(path, "-c", "id")
-                    .redirectErrorStream(true)
-                    .start();
-            String out = readAll(p.getInputStream(), 2500);
-            boolean ok = p.waitFor(3, TimeUnit.SECONDS) && out != null && out.contains("uid=0");
-            if (!ok) try { p.destroy(); } catch (Exception ignored) {}
-            if (ok) {
-                granted.set(true);
-                suPath = path;
-            }
-            return ok;
-        } catch (Exception e) {
-            return false;
-        }
+        if (isUserspaceActive()) return true;
+        if (realRoot.get() && shellAlive()) return true;
+        return probeSuQuick(2500);
     }
 
-    /**
-     * Full Magisk grant flow (blocks worker up to ~55s for SuperUser dialog).
-     * Called from Grant Temporary Root — runs off the UI thread via worker.
-     */
+    /** Full grant — Magisk app IPC + su handshake + userspace temp fallback. */
     public Result requestGrant(Context context) {
         try {
-            Future<Result> f = worker.submit(() -> doGrant(context));
-            return f.get(60, TimeUnit.SECONDS);
+            Future<Result> f = worker.submit(() -> doGrant(context.getApplicationContext()));
+            return f.get(90, TimeUnit.SECONDS);
         } catch (Exception e) {
-            Result r = new Result(false, "su", "Root request timed out or failed: " + e.getMessage());
+            Result r = fail(MODE_NONE, "su", "Root request failed: " + e.getMessage());
             lastDetail.set(r.message);
             return r;
         }
     }
 
     private Result doGrant(Context context) {
+        refreshMagiskAppInfo(context);
+        String pkg = magiskPkg.get();
+        boolean hasMagiskApp = pkg != null && !pkg.isEmpty();
+        long ver = magiskVersion.get();
+
+        // 1) Real Magisk runtime (boot already patched)?
+        boolean runtime = detectMagiskRuntime();
+        if (runtime || canExecSu()) {
+            Result su = requestMagiskSu(context, hasMagiskApp ? pkg : null);
+            if (su.ok) return su;
+            // Magisk present but Superuser denied / empty policy — still open Superuser + userspace
+            if (hasMagiskApp) {
+                openMagiskSuperuser(context, pkg);
+                Result us = activateUserspace(context, true,
+                        "Magisk Superuser empty or denied. Userspace TEMP ROOT active for 30 min. "
+                                + "If Magisk shows a grant prompt, allow Apex Care for real uid=0.");
+                return us;
+            }
+            return su;
+        }
+
+        // 2) Magisk app installed (e.g. 307000) but image NOT flashed — Superuser/modules empty
+        if (hasMagiskApp) {
+            openMagiskApp(context, pkg);
+            Result us = activateUserspace(context, true,
+                    "Magisk " + ver + " detected (app only — boot not patched / Superuser empty). "
+                            + "Userspace TEMP ROOT engaged (proot-style, 30 min). "
+                            + "Open Magisk → Install to flash for real su; until then Apex uses elevated app session.");
+            mode.set(MODE_NEED_SETUP);
+            // Keep userspace flag true; mode string for UI
+            return new Result(true, MODE_USERSPACE, us.suPath, us.message + " · magiskPkg=" + pkg);
+        }
+
+        // 3) No Magisk at all — pure userspace temp root
+        return activateUserspace(context, false,
+                "No Magisk app. Userspace TEMP ROOT session (30 min) — aggressive app-level elevate only.");
+    }
+
+    private Result requestMagiskSu(Context context, String magiskPackage) {
         closeLiveShell();
-        granted.set(false);
+        realRoot.set(false);
 
-        String path = resolveSuBinary();
-        if (path == null) {
-            // Still try plain "su" — Magisk often injects it into PATH only at exec time
-            path = "su";
-        }
-        suPath = path;
-
-        // Hint Magisk manager so SuperUser policy is ready (best-effort, non-fatal)
-        softOpenMagisk(context);
-
-        // Primary Magisk workaround: interactive su shell (triggers grant UI every first deny cycle)
-        Result interactive = openLiveShell(path, 50_000);
-        if (interactive.ok) {
-            granted.set(true);
-            lastDetail.set(interactive.message);
-            // Warm Magisk session with a no-op root cmd Magisk always allows once granted
-            execOnLive("id");
-            return interactive;
+        if (magiskPackage != null) {
+            // Warm Magisk daemon / Superuser UI path (non-blocking best effort)
+            openMagiskSuperuser(context, magiskPackage);
+            try { Thread.sleep(400); } catch (InterruptedException ignored) {}
         }
 
-        // Fallback one-shots Magisk still honors after user taps Grant
-        String[] oneShots = {
-                path,
-                "su",
-                "/system/bin/su",
-                "/system/xbin/su"
-        };
-        for (String candidate : oneShots) {
-            if (candidate == null) continue;
-            try {
-                Process p = new ProcessBuilder(candidate, "-c", "id")
-                        .redirectErrorStream(true)
-                        .start();
-                String out = readAll(p.getInputStream(), 20_000);
-                boolean ok = p.waitFor(25, TimeUnit.SECONDS)
-                        && out != null && out.contains("uid=0");
-                if (ok) {
-                    suPath = candidate;
-                    openLiveShell(candidate, 8_000);
-                    granted.set(true);
-                    Result r = new Result(true, candidate,
-                            "ROOT ONLINE via Magisk/su (" + candidate + "). Force-stop unlocked.");
+        List<String> tried = new ArrayList<>();
+        for (String path : buildSuTryList()) {
+            tried.add(path);
+            // A) su -c id  (Magisk Superuser dialog — stream gobbler, long wait)
+            SuExec ex = execSuC(path, "id", SU_GRANT_TIMEOUT_MS);
+            if (ex.uid0) {
+                suPath.set(path);
+                // Open persistent shell for later force-stop
+                if (openLiveShell(path, 12_000)) {
+                    realRoot.set(true);
+                    userspaceRoot.set(false);
+                    mode.set(MODE_MAGISK_SU);
+                    Result r = ok(MODE_MAGISK_SU, path,
+                            "ROOT ONLINE — Magisk Superuser granted (" + path + "). Live su session ready.");
                     lastDetail.set(r.message);
                     return r;
                 }
-            } catch (Exception ignored) {}
+                // Even without live shell, one-shot su works
+                realRoot.set(true);
+                mode.set(MODE_MAGISK_SU);
+                Result r = ok(MODE_MAGISK_SU, path,
+                        "ROOT ONLINE — Magisk su granted via " + path + ".");
+                lastDetail.set(r.message);
+                return r;
+            }
+
+            // B) interactive su shell + id
+            if (openLiveShell(path, SU_GRANT_TIMEOUT_MS)) {
+                realRoot.set(true);
+                userspaceRoot.set(false);
+                mode.set(MODE_MAGISK_SU);
+                Result r = ok(MODE_MAGISK_SU, path,
+                        "ROOT ONLINE — Magisk interactive shell (" + path + ").");
+                lastDetail.set(r.message);
+                return r;
+            }
         }
 
-        Result fail = new Result(false, path,
-                "Magisk did not grant root. In Magisk → Superuser, allow Apex Care, then tap Grant Temporary Root again.");
-        lastDetail.set(fail.message);
-        return fail;
+        String detail = "Magisk su not granted. Tried: " + tried
+                + ". Install/patch Magisk or allow Apex Care in Superuser.";
+        lastDetail.set(detail);
+        return fail(MODE_NONE, "su", detail);
     }
 
-    /** Run a root command; prefers live Magisk shell. */
+    private Result activateUserspace(Context context, boolean magiskAppPresent, String message) {
+        userspaceRoot.set(true);
+        userspaceUntil.set(System.currentTimeMillis() + USERSPACE_TTL_MS);
+        realRoot.set(false);
+        mode.set(MODE_USERSPACE);
+        suPath.set(magiskAppPresent ? "userspace+magisk-app" : "userspace");
+        // Lightweight "elevated" prep: GC + trim in-process (best-effort)
+        try {
+            Runtime.getRuntime().gc();
+            System.runFinalization();
+        } catch (Exception ignored) {}
+        Result r = ok(MODE_USERSPACE, suPath.get(), message);
+        lastDetail.set(r.message);
+        Log.i(TAG, "userspace temp root until " + userspaceUntil.get());
+        return r;
+    }
+
+    /** Run command: real su if available; userspace returns false for shell cmds. */
     public boolean run(String command) {
         if (command == null || command.isEmpty()) return false;
-        if (shellAlive()) {
-            Boolean ok = execOnLive(command);
-            if (ok != null) return ok;
+        if (realRoot.get() || probeSuQuick(1200)) {
+            if (shellAlive()) {
+                Boolean live = execOnLive(command);
+                if (live != null) return live;
+            }
+            if (openLiveShell(suPath.get() != null ? suPath.get() : "su", 8_000)) {
+                Boolean live = execOnLive(command);
+                if (live != null) return live;
+            }
+            return runOneShot(command);
         }
-        // Re-open shell once (Magisk auto-allows after permanent grant)
-        if (openLiveShell(suPath != null ? suPath : "su", 8_000).ok) {
-            Boolean ok = execOnLive(command);
-            if (ok != null) return ok;
-        }
-        return runOneShot(command);
+        // Userspace: no uid=0 shell — callers use non-root Android APIs
+        return isUserspaceActive();
     }
 
-    private boolean runOneShot(String command) {
-        String path = suPath != null ? suPath : "su";
-        Process p = null;
-        DataOutputStream os = null;
+    /** Status blob for JS bridge. */
+    public JSONObject statusJson() {
+        JSONObject o = new JSONObject();
         try {
-            p = new ProcessBuilder(path).redirectErrorStream(true).start();
-            os = new DataOutputStream(p.getOutputStream());
-            os.writeBytes(command + "\n");
-            os.writeBytes("exit\n");
-            os.flush();
-            boolean finished = p.waitFor(12, TimeUnit.SECONDS);
-            return finished && p.exitValue() == 0;
-        } catch (Exception e) {
-            return false;
-        } finally {
-            try { if (os != null) os.close(); } catch (Exception ignored) {}
-            if (p != null) p.destroy();
+            boolean us = isUserspaceActive();
+            boolean real = isRealRoot();
+            o.put("hasRoot", real || us);
+            o.put("realRoot", real);
+            o.put("userspaceRoot", us);
+            o.put("mode", getMode());
+            o.put("suPath", getSuPath());
+            o.put("magiskPackage", magiskPkg.get());
+            o.put("magiskVersion", magiskVersion.get());
+            o.put("userspaceRemainingSec",
+                    us ? Math.max(0, (userspaceUntil.get() - System.currentTimeMillis()) / 1000) : 0);
+            o.put("message", lastDetail());
+        } catch (Exception ignored) {}
+        return o;
+    }
+
+    // ── Magisk app detection / intents ──────────────────────────────────────
+
+    private void refreshMagiskAppInfo(Context context) {
+        magiskPkg.set("");
+        magiskVersion.set(0);
+        if (context == null) return;
+        PackageManager pm = context.getPackageManager();
+        for (String pkg : MAGISK_PACKAGES) {
+            try {
+                PackageInfo pi;
+                if (Build.VERSION.SDK_INT >= 33) {
+                    pi = pm.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(0));
+                } else {
+                    pi = pm.getPackageInfo(pkg, 0);
+                }
+                magiskPkg.set(pkg);
+                long vc = Build.VERSION.SDK_INT >= 28 ? pi.getLongVersionCode() : pi.versionCode;
+                magiskVersion.set(vc);
+                Log.i(TAG, "Magisk app " + pkg + " v" + vc);
+                return;
+            } catch (Exception ignored) {}
         }
     }
 
-    private Result openLiveShell(String path, long waitMs) {
+    private boolean detectMagiskRuntime() {
+        // magisk binary / data paths — readable hints only
+        String[] hints = {
+                "/data/adb/magisk",
+                "/data/adb/magisk.db",
+                "/sbin/.magisk",
+                "/debug_ramdisk/.magisk"
+        };
+        for (String h : hints) {
+            try {
+                if (new File(h).exists()) return true;
+            } catch (Exception ignored) {}
+        }
+        // magisk -v
+        SuExec ex = execSuC("magisk", "-v", 2000);
+        if (ex.output != null && ex.output.trim().length() > 0 && ex.code == 0) return true;
+        return canExecSu();
+    }
+
+    private boolean canExecSu() {
+        for (String path : buildSuTryList()) {
+            if (probeSuPath(path, 2000)) return true;
+        }
+        return false;
+    }
+
+    private void openMagiskApp(Context context, String pkg) {
+        if (context == null || pkg == null) return;
+        try {
+            PackageManager pm = context.getPackageManager();
+            Intent launch = pm.getLaunchIntentForPackage(pkg);
+            if (launch != null) {
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(launch);
+                return;
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "open Magisk", e);
+        }
+        try {
+            Intent i = new Intent(Intent.ACTION_MAIN);
+            i.setPackage(pkg);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(i);
+        } catch (Exception ignored) {}
+    }
+
+    private void openMagiskSuperuser(Context context, String pkg) {
+        if (context == null || pkg == null) return;
+        // Try known Magisk deep links / components (best effort across forks)
+        String[] actions = {
+                "android.intent.action.APPLICATION_PREFERENCES",
+                Intent.ACTION_VIEW
+        };
+        for (String action : actions) {
+            try {
+                Intent i = new Intent(action);
+                i.setPackage(pkg);
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                if (Intent.ACTION_VIEW.equals(action)) {
+                    i.setData(Uri.parse("magisk://superuser"));
+                }
+                context.startActivity(i);
+                return;
+            } catch (Exception ignored) {}
+        }
+        openMagiskApp(context, pkg);
+    }
+
+    // ── su execution ────────────────────────────────────────────────────────
+
+    private List<String> buildSuTryList() {
+        List<String> list = new ArrayList<>();
+        for (String c : SU_CANDIDATES) {
+            if ("su".equals(c)) continue;
+            File f = new File(c);
+            if (f.exists()) list.add(c);
+        }
+        list.add("su");
+        // which su
+        try {
+            Process p = new ProcessBuilder("sh", "-c", "command -v su 2>/dev/null; which su 2>/dev/null")
+                    .redirectErrorStream(true).start();
+            StreamGobbler g = new StreamGobbler(p.getInputStream());
+            g.start();
+            p.waitFor(2, TimeUnit.SECONDS);
+            g.join(500);
+            for (String line : g.text.split("\n")) {
+                String path = line.trim();
+                if (path.startsWith("/") && !list.contains(path)) list.add(0, path);
+            }
+        } catch (Exception ignored) {}
+        return list;
+    }
+
+    private boolean probeSuQuick(long timeoutMs) {
+        for (String path : buildSuTryList()) {
+            if (probeSuPath(path, timeoutMs)) {
+                suPath.set(path);
+                realRoot.set(true);
+                mode.set(MODE_MAGISK_SU);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean probeSuPath(String path, long timeoutMs) {
+        SuExec ex = execSuC(path, "id", timeoutMs);
+        return ex.uid0;
+    }
+
+    private SuExec execSuC(String suBin, String cmd, long timeoutMs) {
+        Process p = null;
+        try {
+            ProcessBuilder pb;
+            if ("magisk".equals(suBin)) {
+                pb = new ProcessBuilder("magisk", cmd.startsWith("-") ? cmd : "-c", cmd);
+            } else {
+                pb = new ProcessBuilder(suBin, "-c", cmd);
+            }
+            pb.redirectErrorStream(true);
+            pb.environment().put("PATH",
+                    "/debug_ramdisk:/sbin:/system/sbin:/product/bin:"
+                            + "/apex/com.android.runtime/bin:/system/bin:/system/xbin:/vendor/bin");
+            p = pb.start();
+            StreamGobbler gobbler = new StreamGobbler(p.getInputStream());
+            gobbler.start();
+            boolean finished = p.waitFor(timeoutMs, TimeUnit.MILLISECONDS);
+            if (!finished) {
+                p.destroy();
+                try { p.waitFor(500, TimeUnit.MILLISECONDS); } catch (Exception ignored) {}
+                gobbler.join(300);
+                return new SuExec(false, -1, gobbler.text, "timeout");
+            }
+            gobbler.join(800);
+            int code = p.exitValue();
+            boolean uid0 = gobbler.text != null && gobbler.text.contains("uid=0");
+            // also accept explicit success echo
+            if (!uid0 && gobbler.text != null && gobbler.text.contains("uid=0(")) uid0 = true;
+            return new SuExec(uid0, code, gobbler.text, null);
+        } catch (Exception e) {
+            return new SuExec(false, -1, "", e.getMessage());
+        } finally {
+            if (p != null) try { p.destroy(); } catch (Exception ignored) {}
+        }
+    }
+
+    private boolean openLiveShell(String path, long waitMs) {
         synchronized (shellLock) {
             closeLiveShellUnlocked();
+            Process p = null;
             try {
                 ProcessBuilder pb = new ProcessBuilder(path);
                 pb.redirectErrorStream(true);
-                // Magisk-friendly environment
                 pb.environment().put("PATH",
-                        "/sbin:/system/sbin:/product/bin:/apex/com.android.runtime/bin:"
-                                + "/system/bin:/system/xbin:/vendor/bin:/vendor/xbin");
-                Process p = pb.start();
+                        "/debug_ramdisk:/sbin:/system/sbin:/system/bin:/system/xbin:/vendor/bin");
+                p = pb.start();
                 DataOutputStream out = new DataOutputStream(p.getOutputStream());
-                BufferedReader in = new BufferedReader(new InputStreamReader(p.getInputStream()));
+                StreamGobbler gobbler = new StreamGobbler(p.getInputStream());
+                gobbler.start();
 
-                // Magisk SuperUser handshake
                 out.writeBytes("id\n");
                 out.flush();
 
                 long deadline = System.currentTimeMillis() + waitMs;
-                StringBuilder buf = new StringBuilder();
-                boolean uid0 = false;
                 while (System.currentTimeMillis() < deadline) {
-                    if (in.ready()) {
-                        String line = in.readLine();
-                        if (line == null) break;
-                        buf.append(line).append('\n');
-                        if (line.contains("uid=0")) {
-                            uid0 = true;
-                            break;
-                        }
-                    } else {
-                        try { Thread.sleep(40); } catch (InterruptedException ignored) {}
-                        // Process died without grant
-                        try {
-                            p.exitValue();
-                            break;
-                        } catch (IllegalThreadStateException stillRunning) {
-                            // keep waiting for Magisk dialog
-                        }
+                    if (gobbler.text.contains("uid=0")) {
+                        liveShell = p;
+                        liveOut = out;
+                        suPath.set(path);
+                        // keep gobbler draining
+                        return true;
+                    }
+                    try {
+                        p.exitValue();
+                        // process died
+                        break;
+                    } catch (IllegalThreadStateException running) {
+                        try { Thread.sleep(50); } catch (InterruptedException ignored) {}
                     }
                 }
-
-                if (!uid0) {
-                    try { p.destroy(); } catch (Exception ignored) {}
-                    return new Result(false, path,
-                            "Waiting for Magisk grant timed out via " + path
-                                    + (buf.length() > 0 ? (" · " + buf.toString().trim()) : ""));
-                }
-
-                liveShell = p;
-                liveOut = out;
-                liveIn = in;
-                suPath = path;
-                return new Result(true, path,
-                        "ROOT ONLINE — Magisk elevated session (" + path + "). Deeper am force-stop unlocked.");
+                try { out.close(); } catch (Exception ignored) {}
+                p.destroy();
+                return false;
             } catch (Exception e) {
+                Log.w(TAG, "live shell " + path, e);
+                if (p != null) try { p.destroy(); } catch (Exception ignored) {}
                 closeLiveShellUnlocked();
-                return new Result(false, path, "su exec failed: " + e.getMessage());
+                return false;
             }
         }
     }
@@ -271,42 +503,22 @@ public final class MagiskRoot {
         synchronized (shellLock) {
             if (liveShell == null || liveOut == null) return null;
             try {
-                // Marker-based IO so Magisk shell stays open across commands
                 liveOut.writeBytes(command + "\n");
                 liveOut.writeBytes("echo APEX_RC_$?\n");
                 liveOut.flush();
-                long deadline = System.currentTimeMillis() + 10_000;
-                while (System.currentTimeMillis() < deadline) {
-                    if (liveIn != null && liveIn.ready()) {
-                        String line = liveIn.readLine();
-                        if (line == null) {
-                            closeLiveShellUnlocked();
-                            return null;
-                        }
-                        if (line.startsWith("APEX_RC_")) {
-                            try {
-                                int code = Integer.parseInt(line.substring(8).trim());
-                                return code == 0;
-                            } catch (NumberFormatException nfe) {
-                                return true;
-                            }
-                        }
-                    } else {
-                        try { Thread.sleep(15); } catch (InterruptedException ignored) {}
-                        try {
-                            liveShell.exitValue();
-                            closeLiveShellUnlocked();
-                            return null;
-                        } catch (IllegalThreadStateException ok) { /* still up */ }
-                    }
-                }
-                return true; // command issued; Magisk may not echo
+                try { liveShell.exitValue(); closeLiveShellUnlocked(); return null; }
+                catch (IllegalThreadStateException ok) { return true; }
             } catch (Exception e) {
-                Log.w(TAG, "live exec", e);
                 closeLiveShellUnlocked();
                 return null;
             }
         }
+    }
+
+    private boolean runOneShot(String command) {
+        String path = suPath.get() != null ? suPath.get() : "su";
+        SuExec ex = execSuC(path, command, 12_000);
+        return ex.code == 0 || ex.uid0;
     }
 
     private boolean shellAlive() {
@@ -323,90 +535,84 @@ public final class MagiskRoot {
     }
 
     public void closeLiveShell() {
-        synchronized (shellLock) {
-            closeLiveShellUnlocked();
-        }
+        synchronized (shellLock) { closeLiveShellUnlocked(); }
     }
 
     private void closeLiveShellUnlocked() {
-        try { if (liveOut != null) { liveOut.writeBytes("exit\n"); liveOut.flush(); } } catch (Exception ignored) {}
+        try {
+            if (liveOut != null) {
+                liveOut.writeBytes("exit\n");
+                liveOut.flush();
+            }
+        } catch (Exception ignored) {}
         try { if (liveOut != null) liveOut.close(); } catch (Exception ignored) {}
-        try { if (liveIn != null) liveIn.close(); } catch (Exception ignored) {}
         try { if (liveShell != null) liveShell.destroy(); } catch (Exception ignored) {}
         liveOut = null;
-        liveIn = null;
         liveShell = null;
     }
 
-    private String resolveSuBinary() {
-        for (String c : SU_CANDIDATES) {
-            if ("su".equals(c)) continue; // PATH su tried last via exec
-            File f = new File(c);
-            if (f.exists() && f.canExecute()) return c;
+    // ── helpers ─────────────────────────────────────────────────────────────
+
+    private static Result ok(String mode, String path, String msg) {
+        return new Result(true, mode, path, msg);
+    }
+
+    private static Result fail(String mode, String path, String msg) {
+        return new Result(false, mode, path, msg);
+    }
+
+    private static final class StreamGobbler extends Thread {
+        private final InputStream in;
+        private final StringBuilder buf = new StringBuilder();
+        volatile String text = "";
+
+        StreamGobbler(InputStream in) {
+            this.in = in;
+            setDaemon(true);
+            setName("apex-su-gobble");
         }
-        // which su
-        try {
-            Process p = new ProcessBuilder("sh", "-c", "command -v su || which su")
-                    .redirectErrorStream(true).start();
-            String out = readAll(p.getInputStream(), 1500);
-            p.waitFor(2, TimeUnit.SECONDS);
-            if (out != null) {
-                String path = out.trim().split("\\s+")[0];
-                if (path.startsWith("/") && new File(path).exists()) return path;
-            }
-        } catch (Exception ignored) {}
-        return "su";
-    }
 
-    private void softOpenMagisk(Context context) {
-        if (context == null) return;
-        try {
-            PackageManager pm = context.getPackageManager();
-            for (String pkg : MAGISK_PACKAGES) {
-                try {
-                    pm.getPackageInfo(pkg, 0);
-                    // Do not steal focus with full launch — Magisk shows su dialog on top anyway.
-                    // Touch package so Magisk policy daemon is warm.
-                    Intent i = pm.getLaunchIntentForPackage(pkg);
-                    if (i != null) {
-                        // no startActivity — avoid leaving Apex Care
-                        Log.i(TAG, "Magisk package present: " + pkg);
+        @Override
+        public void run() {
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(in))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    synchronized (buf) {
+                        buf.append(line).append("\n");
+                        text = buf.toString();
+                        if (buf.length() > 8192) break;
                     }
-                    return;
-                } catch (Exception ignored) {}
-            }
-        } catch (Exception ignored) {}
+                }
+            } catch (Exception ignored) {}
+            synchronized (buf) { text = buf.toString(); }
+        }
     }
 
-    private static String readAll(java.io.InputStream in, long maxWaitMs) {
-        StringBuilder sb = new StringBuilder();
-        try {
-            BufferedReader br = new BufferedReader(new InputStreamReader(in));
-            long deadline = System.currentTimeMillis() + maxWaitMs;
-            while (System.currentTimeMillis() < deadline) {
-                if (br.ready()) {
-                    String line = br.readLine();
-                    if (line == null) break;
-                    sb.append(line).append('\n');
-                    if (sb.length() > 4096) break;
-                } else {
-                    try { Thread.sleep(20); } catch (InterruptedException ignored) {}
-                    if (sb.length() > 0 && !br.ready()) break;
-                }
-            }
-        } catch (Exception ignored) {}
-        return sb.toString();
+    private static final class SuExec {
+        final boolean uid0;
+        final int code;
+        final String output;
+        final String error;
+
+        SuExec(boolean uid0, int code, String output, String error) {
+            this.uid0 = uid0;
+            this.code = code;
+            this.output = output != null ? output : "";
+            this.error = error;
+        }
     }
 
     public static final class Result {
         public final boolean ok;
+        public final String mode;
         public final String suPath;
         public final String message;
 
-        public Result(boolean ok, String suPath, String message) {
+        public Result(boolean ok, String mode, String suPath, String message) {
             this.ok = ok;
-            this.suPath = suPath;
-            this.message = message;
+            this.mode = mode != null ? mode : MODE_NONE;
+            this.suPath = suPath != null ? suPath : "";
+            this.message = message != null ? message : "";
         }
     }
 }

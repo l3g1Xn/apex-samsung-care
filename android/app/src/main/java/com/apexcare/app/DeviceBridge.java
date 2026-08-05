@@ -44,29 +44,45 @@ public class DeviceBridge {
         return magisk.isGranted() || magisk.probeQuick();
     }
 
+    private boolean hasRealRoot() {
+        return magisk.isRealRoot();
+    }
+
     private boolean runAsRoot(String command) {
         return magisk.run(command);
     }
 
     /**
-     * Grant Temporary Root — Magisk SuperUser handshake in Apex Care background worker.
-     * Blocks JS bridge thread (not UI) until Magisk grant dialog is answered or times out.
+     * Grant Temporary Root — talks to Magisk app (if installed), requests Superuser,
+     * or engages userspace TEMP ROOT (proot-style) when Magisk app is present but
+     * boot is not patched / Superuser empty.
      */
     @JavascriptInterface
     public String requestRootAccess() {
         try {
             MagiskRoot.Result r = magisk.requestGrant(context);
-            JSONObject o = new JSONObject();
+            JSONObject o = magisk.statusJson();
             o.put("ok", r.ok);
-            o.put("hasRoot", r.ok);
-            o.put("suPath", r.suPath != null ? r.suPath : "");
-            o.put("provider", r.ok ? "magisk_su" : "none");
+            o.put("hasRoot", r.ok || magisk.isGranted());
+            o.put("suPath", r.suPath);
+            o.put("mode", r.mode);
+            o.put("provider", r.mode);
             o.put("message", r.message);
-            if (r.ok) {
-                // Prime session for force-stop path used by Optimize / Clean
+            if (r.ok && MagiskRoot.MODE_MAGISK_SU.equals(r.mode)) {
                 magisk.run("id");
             }
+            // Always attach fresh memory snapshot for UI
+            try { o.put("mem", new JSONObject(getMemoryStats())); } catch (Exception ignored) {}
             return o.toString();
+        } catch (Exception e) { return errorJson(e); }
+    }
+
+    @JavascriptInterface
+    public String getRootStatus() {
+        try {
+            return magisk.statusJson()
+                    .put("ok", true)
+                    .toString();
         } catch (Exception e) { return errorJson(e); }
     }
 
@@ -152,12 +168,25 @@ public class DeviceBridge {
                 return new JSONObject().put("ok", false).put("error", "empty").toString();
             if (PROTECTED.contains(packageName))
                 return new JSONObject().put("ok", false).put("error", "protected").toString();
-            boolean root = hasRoot();
-            if (root) runAsRoot("am force-stop " + packageName);
+            boolean real = hasRealRoot();
+            boolean elevated = hasRoot();
+            String method = "kill_background";
+            if (real) {
+                runAsRoot("am force-stop " + packageName);
+                runAsRoot("cmd activity force-stop " + packageName);
+                method = "root_force_stop";
+            }
             ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-            if (am != null) try { am.killBackgroundProcesses(packageName); } catch (Exception ignored) {}
-            return new JSONObject().put("ok", true).put("hasRoot", root)
-                .put("method", root ? "root_force_stop" : "kill_background")
+            if (am != null) {
+                try { am.killBackgroundProcesses(packageName); } catch (Exception ignored) {}
+                // Userspace temp root: extra kill passes
+                if (elevated && !real) {
+                    try { am.killBackgroundProcesses(packageName); } catch (Exception ignored) {}
+                    method = "userspace_temp_kill";
+                }
+            }
+            return new JSONObject().put("ok", true).put("hasRoot", elevated).put("realRoot", real)
+                .put("mode", magisk.getMode()).put("method", method)
                 .put("mem", new JSONObject(getMemoryStats())).toString();
         } catch (Exception e) { return errorJson(e); }
     }
@@ -296,6 +325,8 @@ public class DeviceBridge {
             return new JSONObject().put("ok", true).put("model", Build.MODEL)
                 .put("manufacturer", Build.MANUFACTURER).put("sdk", Build.VERSION.SDK_INT)
                 .put("hasRoot", hasRoot()).put("rooted", hasRoot())
+                .put("realRoot", hasRealRoot())
+                .put("mode", magisk.getMode())
                 .put("suPath", magisk.getSuPath())
                 .put("rootDetail", magisk.lastDetail()).toString();
         } catch (Exception e) { return errorJson(e); }

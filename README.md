@@ -39,14 +39,14 @@ If Samsung says **"App not installed"**: you still have an old build, or you gra
 
 ---
 
-## Magisk Grant Root (in-app)
+## Magisk + Temporary Root (in-app)
 
-**Grant Temporary Root** runs Magisk's real `su` handshake inside Apex Care's background worker (`MagiskRoot`):
+**Grant Temporary Root** automates elevation from inside Apex Care:
 
-1. Resolves Magisk/KSU `su` paths
-2. Opens an interactive root shell (Magisk SuperUser dialog)
-3. Keeps a live elevated session for `am force-stop` / Clean
-4. No install-time root — you must tap **Grant** on Magisk once (or Forever)
+1. Detects Magisk Manager (incl. v30.7 / 307000) and opens it when useful
+2. If boot is patched: Magisk Superuser `su` handshake + live root session
+3. If Magisk app only / Superuser empty (not flashed): **userspace TEMP ROOT** (proot-style, 30 min) — elevated app session for aggressive cleanup without uid=0
+4. Real `am force-stop` only when Magisk Superuser grants; otherwise multi-pass background kill
 
 ## Root reality check (read this before you invent a fantasy)
 

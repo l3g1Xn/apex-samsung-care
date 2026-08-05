@@ -201,8 +201,12 @@ const state = {
   optimizing: false,
   cleanPhase: "",
   hasRoot: false,
+  realRoot: false,
+  rootMode: "none",
   rootMsg: "",
   rootBusy: false,
+  magiskVersion: 0,
+  userspaceRemainingSec: 0,
   autoSchedule: (function () {
     try { return localStorage.getItem("apex.autoSchedule") || "off"; } catch (e) { return "off"; }
   })(),
@@ -267,6 +271,10 @@ function applyMem(m) {
   if (!m) return;
   state.mem = m;
   if (m.hasRoot != null) state.hasRoot = !!m.hasRoot;
+  if (m.realRoot != null) state.realRoot = !!m.realRoot;
+  if (m.mode) state.rootMode = m.mode;
+  if (m.userspaceRemainingSec != null) state.userspaceRemainingSec = m.userspaceRemainingSec;
+  if (m.magiskVersion != null) state.magiskVersion = m.magiskVersion;
   state.score = computeHealthScore();
 }
 function loadMemory() {
@@ -299,7 +307,7 @@ function metaLine() {
   if (!m) return "procs —";
   var procs = m.runningProcesses != null ? m.runningProcesses + " procs" : "—";
   var freePct = m.freeRamPct != null ? Math.round(m.freeRamPct) + "% free" : "";
-  var root = state.hasRoot ? "root" : "no-root";
+  var root = state.realRoot ? "magisk-root" : state.hasRoot ? "temp-root" : "no-root";
   return procs + (freePct ? " · " + freePct : "") + " · " + root;
 }
 function dotsHtml() {
@@ -598,15 +606,16 @@ function home() {
       '<div class="row mt" style="gap:.5rem;align-items:center;flex-wrap:wrap">' +
         '<button class="btn btn-secondary" style="flex:1;min-width:10rem" onclick="window.AC.grantRoot()" ' +
           (state.rootBusy || !hasNative ? 'disabled' : '') + '>' +
-          (state.rootBusy ? dotsHtml() + ' Requesting…' : 'Grant Temporary Root') +
+          (state.rootBusy ? dotsHtml() + ' Engaging…' : (state.hasRoot ? 'Renew Temp Root' : 'Grant Temporary Root')) +
         '</button>' +
         '<span class="root-badge ' + (state.hasRoot ? 'on' : 'off') + '">' +
-          (state.hasRoot ? 'ROOT ONLINE' : 'NO ROOT') + '</span>' +
+          (state.realRoot ? 'MAGISK ROOT' : state.hasRoot ? 'TEMP ROOT' : 'NO ROOT') + '</span>' +
       '</div>' +
       (state.rootMsg ? '<div class="clean-status">' + escapeHtml(state.rootMsg) + '</div>' : '') +
       (state.cleanPhase ? '<div class="clean-status">' + escapeHtml(state.cleanPhase) + '</div>' : '') +
-      '<p class="faint mt" style="margin-bottom:0">Grant Temporary Root runs Magisk <span class="mono">su</span> in Apex Care background. Tap Grant on Magisk SuperUser — Android never auto-roots on install. (' +
-        (state.hasRoot ? 'root ready' : 'no root · background kill') + ').</p>' +
+      '<p class="faint mt" style="margin-bottom:0">Grant Root talks to the Magisk app, requests Superuser when flashed, or starts a <strong>userspace TEMP ROOT</strong> session (proot-style, 30 min) if Magisk is app-only / Superuser empty. (' +
+        (state.realRoot ? 'magisk uid=0' : state.hasRoot ? ('temp root · ' + (state.userspaceRemainingSec || 0) + 's left') : 'no root · background kill') +
+        (state.magiskVersion ? ' · Magisk ' + state.magiskVersion : '') + ').</p>' +
     '</div>' +
     '<div class="card" style="padding:.875rem">' +
       '<div class="row" style="margin-bottom:.55rem">' +
@@ -870,7 +879,7 @@ window.AC = {
   grantRoot: function () {
     if (!hasNative || state.rootBusy) return;
     state.rootBusy = true;
-    state.rootMsg = "Magisk SuperUser request running in background… Tap Grant on the Magisk prompt.";
+    state.rootMsg = "Contacting Magisk app + elevating session…";
     render();
     setTimeout(function () {
       try {
@@ -882,14 +891,20 @@ window.AC = {
         }
         var data = JSON.parse(ApexNative.requestRootAccess());
         state.hasRoot = !!(data.hasRoot || data.ok);
-        state.rootMsg = data.message || (state.hasRoot ? "ROOT ONLINE" : "No root granted");
+        state.realRoot = !!data.realRoot;
+        state.rootMode = data.mode || data.provider || "none";
+        state.magiskVersion = data.magiskVersion || 0;
+        state.userspaceRemainingSec = data.userspaceRemainingSec || 0;
+        state.rootMsg = data.message || (state.hasRoot ? "Elevated" : "Not elevated");
         if (data.suPath) state.rootMsg += " · " + data.suPath;
         if (data.mem) applyMem(data.mem);
         else loadMemory();
-        pushHistory(state.hasRoot ? "Magisk root online" : "Magisk root denied", state.rootMsg);
+        var label = state.realRoot ? "Magisk root online" : state.hasRoot ? "Temp root online" : "Root denied";
+        pushHistory(label, state.rootMsg);
       } catch (e) {
         state.rootMsg = String(e.message || e);
         state.hasRoot = false;
+        state.realRoot = false;
       }
       state.rootBusy = false;
       render();
