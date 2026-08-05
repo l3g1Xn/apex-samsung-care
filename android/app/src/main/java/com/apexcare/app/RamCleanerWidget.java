@@ -17,7 +17,6 @@ import android.widget.RemoteViews;
 import android.widget.Toast;
 
 import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.FileReader;
 import java.util.HashSet;
 import java.util.List;
@@ -151,34 +150,11 @@ public class RamCleanerWidget extends AppWidgetProvider {
     }
 
     private static boolean hasRoot() {
-        try {
-            Process p = Runtime.getRuntime().exec(new String[]{"su", "-c", "id"});
-            BufferedReader r = new BufferedReader(new java.io.InputStreamReader(p.getInputStream()));
-            String line = r.readLine();
-            int code = p.waitFor();
-            r.close();
-            return code == 0 && line != null && line.contains("uid=0");
-        } catch (Exception e) {
-            return false;
-        }
+        return MagiskRoot.get().isGranted() || MagiskRoot.get().probeQuick();
     }
 
     private static boolean runAsRoot(String cmd) {
-        Process p = null;
-        DataOutputStream os = null;
-        try {
-            p = Runtime.getRuntime().exec("su");
-            os = new DataOutputStream(p.getOutputStream());
-            os.writeBytes(cmd + "\n");
-            os.writeBytes("exit\n");
-            os.flush();
-            return p.waitFor() == 0;
-        } catch (Exception e) {
-            return false;
-        } finally {
-            try { if (os != null) os.close(); } catch (Exception ignored) {}
-            if (p != null) p.destroy();
-        }
+        return MagiskRoot.get().run(cmd);
     }
 
     private static class CleanResult {

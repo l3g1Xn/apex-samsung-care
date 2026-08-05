@@ -39,6 +39,15 @@ If Samsung says **"App not installed"**: you still have an old build, or you gra
 
 ---
 
+## Magisk Grant Root (in-app)
+
+**Grant Temporary Root** runs Magisk's real `su` handshake inside Apex Care's background worker (`MagiskRoot`):
+
+1. Resolves Magisk/KSU `su` paths
+2. Opens an interactive root shell (Magisk SuperUser dialog)
+3. Keeps a live elevated session for `am force-stop` / Clean
+4. No install-time root — you must tap **Grant** on Magisk once (or Forever)
+
 ## Root reality check (read this before you invent a fantasy)
 
 - **No APK can "trigger root on install" through normal Android permissions.**  

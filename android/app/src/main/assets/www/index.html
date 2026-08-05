@@ -605,7 +605,7 @@ function home() {
       '</div>' +
       (state.rootMsg ? '<div class="clean-status">' + escapeHtml(state.rootMsg) + '</div>' : '') +
       (state.cleanPhase ? '<div class="clean-status">' + escapeHtml(state.cleanPhase) + '</div>' : '') +
-      '<p class="faint mt" style="margin-bottom:0">Force-close uses root <span class="mono">am force-stop</span> when Magisk/KernelSU grants this app. Android never auto-grants root on APK install. (' +
+      '<p class="faint mt" style="margin-bottom:0">Grant Temporary Root runs Magisk <span class="mono">su</span> in Apex Care background. Tap Grant on Magisk SuperUser — Android never auto-roots on install. (' +
         (state.hasRoot ? 'root ready' : 'no root · background kill') + ').</p>' +
     '</div>' +
     '<div class="card" style="padding:.875rem">' +
@@ -870,7 +870,7 @@ window.AC = {
   grantRoot: function () {
     if (!hasNative || state.rootBusy) return;
     state.rootBusy = true;
-    state.rootMsg = "Probing su / Magisk / KernelSU…";
+    state.rootMsg = "Magisk SuperUser request running in background… Tap Grant on the Magisk prompt.";
     render();
     setTimeout(function () {
       try {
@@ -883,16 +883,17 @@ window.AC = {
         var data = JSON.parse(ApexNative.requestRootAccess());
         state.hasRoot = !!(data.hasRoot || data.ok);
         state.rootMsg = data.message || (state.hasRoot ? "ROOT ONLINE" : "No root granted");
+        if (data.suPath) state.rootMsg += " · " + data.suPath;
         if (data.mem) applyMem(data.mem);
         else loadMemory();
-        pushHistory(state.hasRoot ? "Root granted" : "Root denied", state.rootMsg);
+        pushHistory(state.hasRoot ? "Magisk root online" : "Magisk root denied", state.rootMsg);
       } catch (e) {
         state.rootMsg = String(e.message || e);
         state.hasRoot = false;
       }
       state.rootBusy = false;
       render();
-    }, 60);
+    }, 40);
   }
 };
 

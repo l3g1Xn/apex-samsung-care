@@ -15,7 +15,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.FileReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -28,7 +27,7 @@ import java.util.Set;
 public class DeviceBridge {
     private static final String TAG = "ApexNative";
     private final Context context;
-    private static Boolean rootAvailable = null;
+    private final MagiskRoot magisk = MagiskRoot.get();
 
     private static final Set<String> PROTECTED = new HashSet<>();
     static {
@@ -41,45 +40,32 @@ public class DeviceBridge {
 
     public DeviceBridge(Context context) { this.context = context.getApplicationContext(); }
 
-    private synchronized boolean hasRoot() {
-        if (rootAvailable != null) return rootAvailable;
-        rootAvailable = false;
-        try {
-            Process p = Runtime.getRuntime().exec(new String[]{"su", "-c", "id"});
-            BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream()));
-            String line = r.readLine();
-            int code = p.waitFor();
-            r.close();
-            rootAvailable = code == 0 && line != null && line.contains("uid=0");
-        } catch (Exception e) { rootAvailable = false; }
-        return rootAvailable;
+    private boolean hasRoot() {
+        return magisk.isGranted() || magisk.probeQuick();
     }
 
     private boolean runAsRoot(String command) {
-        Process p = null; DataOutputStream os = null;
-        try {
-            p = Runtime.getRuntime().exec("su");
-            os = new DataOutputStream(p.getOutputStream());
-            os.writeBytes(command + "\n"); os.writeBytes("exit\n"); os.flush();
-            return p.waitFor() == 0;
-        } catch (Exception e) { return false; }
-        finally {
-            try { if (os != null) os.close(); } catch (Exception ignored) {}
-            if (p != null) p.destroy();
-        }
+        return magisk.run(command);
     }
 
+    /**
+     * Grant Temporary Root — Magisk SuperUser handshake in Apex Care background worker.
+     * Blocks JS bridge thread (not UI) until Magisk grant dialog is answered or times out.
+     */
     @JavascriptInterface
     public String requestRootAccess() {
         try {
-            synchronized (DeviceBridge.class) { rootAvailable = null; }
-            boolean ok = hasRoot();
+            MagiskRoot.Result r = magisk.requestGrant(context);
             JSONObject o = new JSONObject();
-            o.put("ok", ok); o.put("hasRoot", ok);
-            o.put("message", ok
-                ? "ROOT ONLINE — temporary elevated session. Deeper am force-stop unlocked."
-                : "No root. Install Magisk/KernelSU, grant this app once, then tap again. Android never auto-grants root on APK install.");
-            if (ok) runAsRoot("id");
+            o.put("ok", r.ok);
+            o.put("hasRoot", r.ok);
+            o.put("suPath", r.suPath != null ? r.suPath : "");
+            o.put("provider", r.ok ? "magisk_su" : "none");
+            o.put("message", r.message);
+            if (r.ok) {
+                // Prime session for force-stop path used by Optimize / Clean
+                magisk.run("id");
+            }
             return o.toString();
         } catch (Exception e) { return errorJson(e); }
     }
@@ -309,7 +295,9 @@ public class DeviceBridge {
         try {
             return new JSONObject().put("ok", true).put("model", Build.MODEL)
                 .put("manufacturer", Build.MANUFACTURER).put("sdk", Build.VERSION.SDK_INT)
-                .put("hasRoot", hasRoot()).put("rooted", hasRoot()).toString();
+                .put("hasRoot", hasRoot()).put("rooted", hasRoot())
+                .put("suPath", magisk.getSuPath())
+                .put("rootDetail", magisk.lastDetail()).toString();
         } catch (Exception e) { return errorJson(e); }
     }
 
