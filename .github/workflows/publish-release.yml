@@ -67,13 +67,21 @@ jobs:
           fi
           echo "SIGNED UNIVERSAL APK READY"
 
-      - name: Recreate v1.0.0 release
+      - name: Recreate v1.0.0 release (wipe prior assets/tags)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -e
-          gh release delete v1.0.0 --yes --cleanup-tag 2>/dev/null || true
-          git push origin :refs/tags/v1.0.0 2>/dev/null || true
+          set -euo pipefail
+          # Delete every release so only the new v1.0.0 remains
+          for tag in $(gh release list --limit 50 --json tagName -q '.[].tagName' 2>/dev/null || true); do
+            echo "Deleting release $tag"
+            gh release delete "$tag" --yes --cleanup-tag 2>/dev/null || true
+          done
+          # Drop any leftover tags (previous versions)
+          for ref in $(git ls-remote --tags origin | awk '{print $2}' | sed 's#refs/tags/##' | sed 's#\^{}##'); do
+            echo "Deleting tag $ref"
+            git push origin ":refs/tags/$ref" 2>/dev/null || true
+          done
 
       - name: Publish v1.0.0 (signed)
         uses: softprops/action-gh-release@v2
@@ -89,26 +97,25 @@ jobs:
 
             Package `com.apexcare.app` · versionCode **18** · versionName **1.0.0**
 
-            **Signed universal APK** (v1 + v2 + v3). Replaces prior unsigned / pre-Magisk builds.
+            **This release replaces all prior APKs.** Signed universal (v1 + v2 + v3). Only asset: `ApexCare-v1.0.0.apk`.
 
-            ### Magisk Grant Root
-            In-app **Grant Temporary Root** runs Magisk `su` in a background worker:
-            1. Resolves Magisk/KSU `su`
-            2. Opens interactive SuperUser shell (Magisk grant prompt)
-            3. Keeps live root session for Optimize / Clean / force-stop
+            ### Magisk + Temporary Root
+            **Grant Temporary Root** from inside the app:
+            1. Detects Magisk Manager (e.g. 307000) and opens it when useful
+            2. **Boot patched:** Magisk Superuser `su` → badge **MAGISK ROOT** + live force-stop
+            3. **App only / Superuser empty:** userspace **TEMP ROOT** (proot-style, 30 min)
+            4. Optimize / Clean use real `am force-stop` only with Magisk grant; else multi-pass kill
 
             ### Install
             1. **Uninstall any older Apex Care** first
-            2. Download **ApexCare-v1.0.0.apk** below
-            3. Allow install from this source → install
-            4. Open → **Grant Temporary Root** → tap **Grant** in Magisk
-            5. Badge should read **v1.0.0**
+            2. Download **ApexCare-v1.0.0.apk** only (ignore any old mirrors)
+            3. Allow install → open app → **Grant Temporary Root**
+            4. Badge **v1.0.0**
 
             ### Compatibility
-            - minSdk **24** / targetSdk **34** (Samsung One UI)
-            - Universal APK · no ABI splits
-            - Root optional (Magisk / KernelSU)
+            - minSdk **24** / targetSdk **34** · universal APK (no ABI splits)
+            - Samsung One UI · Magisk optional
 
-            Demo signing for sideload only — not Play Store.
+            Demo signing for sideload — not Play Store.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
