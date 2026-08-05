@@ -23,18 +23,21 @@ import java.util.regex.Pattern;
  * Device Care-style RAM scanner for Apex Care (Samsung One UI / Android 14+).
  *
  * Kernel MemTotal / ActivityManager.totalMem report usable RAM, typically
- * ~0.8-1.5 GB below advertised physical capacity (firmware, GPU, modem, CMA).
+ * ~0.8–1.5 GB below advertised physical capacity (firmware, GPU, modem, CMA).
  * Samsung Device Care shows marketed total (e.g. 12 GB).
  *
- * Strategy:
- *   1) Scan MemTotal + AM.totalMem (hardware usable)
- *   2) Map usable total to nearest marketing tier (4/6/8/12/16/24/32 GB)
- *   3) free%/used% use marketed total so totals match device label
+ * Strategy (on install / first sample):
+ *   1) Multi-sample MemTotal + AM.totalMem (hardware usable)
+ *   2) Map usable → nearest marketing tier (4/6/8/12/16/18/24/32 GB)
+ *      with aggressive round-up for the common 10.5–11.5 → 12 GB case
+ *   3) free% / used% use marketed total so labels match Device Care
  *   4) available from MemAvailable / AM.availMem (live)
+ * Prefs key bumped to v3 so every update/install forces a fresh HW scan.
  */
 public final class RamMetrics {
     private static final String TAG = "ApexRam";
-    private static final String PREFS = "apex_ram_hw_v2";
+    /** Bumped to v3 so any prior 10.9 GiB cache is discarded on install. */
+    private static final String PREFS = "apex_ram_hw_v3";
     private static final String KEY_PHYS_KB = "physical_total_kb";
     private static final String KEY_USABLE_KB = "usable_total_kb";
     private static final String KEY_SCANNED = "hw_scanned_at";
@@ -72,11 +75,16 @@ public final class RamMetrics {
         ProcMem proc = medianProcMem();
         AmMem am = readActivityManager(app);
 
+        // Prefer marketed physical total so UI matches Samsung Device Care label
         long totalKb = physicalKb > 0 ? physicalKb : 0;
-        if (totalKb <= 0 && usableKb > 0) totalKb = usableKb;
+        if (totalKb <= 0 && usableKb > 0) totalKb = mapToMarketedKb(usableKb);
         if (totalKb <= 0 && proc.totalKb > 0) totalKb = mapToMarketedKb(proc.totalKb);
         if (totalKb <= 0 && am.totalKb > 0) totalKb = mapToMarketedKb(am.totalKb);
         if (totalKb <= 0) totalKb = 1;
+
+        // Safety: if we somehow still have a non-marketing value that is clearly
+        // a 12 GB class device (~10.2–11.9 GiB usable), force 12 GB.
+        totalKb = coerceKnownTiers(totalKb);
 
         long availKb;
         String source;
@@ -138,25 +146,31 @@ public final class RamMetrics {
         long cached = sp.getLong(KEY_PHYS_KB, 0L);
         long now = System.currentTimeMillis();
         long scannedAt = sp.getLong(KEY_SCANNED, 0L);
-        if (cached > 1024L * 1024L && (now - scannedAt) < 24L * 3600 * 1000) {
+
+        // Accept cache only if it is a clean marketing multiple and still fresh
+        if (isCleanMarketingKb(cached) && (now - scannedAt) < 7L * 24 * 3600 * 1000) {
             return cached;
         }
+
         long usable = scanUsableRamKb(app);
         long marketed = mapToMarketedKb(usable);
+        marketed = coerceKnownTiers(marketed);
+
         if (marketed > 1024L * 512L) {
             sp.edit()
                     .putLong(KEY_PHYS_KB, marketed)
                     .putLong(KEY_USABLE_KB, usable)
                     .putLong(KEY_SCANNED, now)
                     .apply();
-            Log.i(TAG, "HW RAM scan: usable=" + usable + " kB ("
+            Log.i(TAG, "HW RAM scan (install): usable=" + usable + " kB ("
                     + String.format(Locale.US, "%.2f GiB", kbToGb(usable))
                     + ") -> marketed=" + marketed + " kB ("
                     + String.format(Locale.US, "%.0f GB", kbToGb(marketed)) + ")"
-                    + " sdk=" + Build.VERSION.SDK_INT);
+                    + " sdk=" + Build.VERSION.SDK_INT
+                    + " model=" + Build.MODEL);
             return marketed;
         }
-        return cached > 0 ? cached : marketed;
+        return cached > 0 ? coerceKnownTiers(cached) : marketed;
     }
 
     private static long ensureUsableTotal(Context app) {
@@ -173,32 +187,48 @@ public final class RamMetrics {
         if (p.totalKb > 0) candidates.add(p.totalKb);
         AmMem am = readActivityManager(app);
         if (am.totalKb > 0) candidates.add(am.totalKb);
-        try { Thread.sleep(25); } catch (InterruptedException ignored) {}
+        try { Thread.sleep(30); } catch (InterruptedException ignored) {}
         ProcMem p2 = readProcMemOnce();
         if (p2.totalKb > 0) candidates.add(p2.totalKb);
+        try { Thread.sleep(20); } catch (InterruptedException ignored) {}
+        ProcMem p3 = readProcMemOnce();
+        if (p3.totalKb > 0) candidates.add(p3.totalKb);
+        if (am.totalKb > 0) candidates.add(am.totalKb);
         if (candidates.isEmpty()) return 0;
         Collections.sort(candidates);
+        // Prefer the highest consistent reading (MemTotal can jitter slightly)
         long max = candidates.get(candidates.size() - 1);
         long med = candidates.get(candidates.size() / 2);
-        if (max > med && (max - med) * 100L / max <= 5) return max;
+        if (max > med && (max - med) * 100L / Math.max(max, 1) <= 8) return max;
         return med;
     }
 
-    /** Map kernel usable RAM to OEM marketed capacity. 10.9 GiB -> 12 GB. */
+    /**
+     * Map kernel usable RAM to OEM marketed capacity.
+     * 10.5–11.9 GiB → 12 GB, 7.2–7.9 → 8 GB, etc.
+     * Aggressive enough for Samsung Android 14+ reservation ranges.
+     */
     static long mapToMarketedKb(long usableKb) {
         if (usableKb <= 0) return 0;
         double usableGib = usableKb / (1024.0 * 1024.0);
+
+        // 1) Exact match within 3%
         for (int gib : MARKET_GIB) {
             if (Math.abs(usableGib - gib) / gib <= 0.03) {
                 return gib * 1024L * 1024L;
             }
         }
+
+        // 2) Usable sits below a marketing tier but inside the typical reserved band
+        //    (up to ~18% below advertised). Round UP to that tier.
         for (int gib : MARKET_GIB) {
             double tier = gib;
-            if (usableGib < tier && usableGib >= tier * 0.85) {
+            if (usableGib < tier && usableGib >= tier * 0.82) {
                 return gib * 1024L * 1024L;
             }
         }
+
+        // 3) Nearest tier if within 0.5 GiB or 20%
         int best = MARKET_GIB[0];
         double bestDist = Math.abs(usableGib - best);
         for (int gib : MARKET_GIB) {
@@ -208,10 +238,48 @@ public final class RamMetrics {
                 best = gib;
             }
         }
-        if (bestDist / Math.max(usableGib, 1) <= 0.20) {
+        if (bestDist <= 0.55 || bestDist / Math.max(usableGib, 1) <= 0.22) {
             return best * 1024L * 1024L;
         }
+
+        // Fallback: keep raw usable (rare)
         return usableKb;
+    }
+
+    /** Final safety net for the common 12 GB class that still shows ~10.9. */
+    private static long coerceKnownTiers(long kb) {
+        if (kb <= 0) return kb;
+        double gib = kb / (1024.0 * 1024.0);
+        // 10.2 – 11.95 GiB → 12 GB marketed
+        if (gib >= 10.15 && gib < 12.0) {
+            return 12L * 1024L * 1024L;
+        }
+        // 6.9 – 7.95 → 8 GB
+        if (gib >= 6.85 && gib < 8.0) {
+            return 8L * 1024L * 1024L;
+        }
+        // 5.1 – 5.95 → 6 GB
+        if (gib >= 5.05 && gib < 6.0) {
+            return 6L * 1024L * 1024L;
+        }
+        // 3.4 – 3.95 → 4 GB
+        if (gib >= 3.35 && gib < 4.0) {
+            return 4L * 1024L * 1024L;
+        }
+        // 13.5 – 15.9 → 16 GB
+        if (gib >= 13.4 && gib < 16.0) {
+            return 16L * 1024L * 1024L;
+        }
+        return kb;
+    }
+
+    private static boolean isCleanMarketingKb(long kb) {
+        if (kb < 1024L * 1024L * 3) return false;
+        double gib = kb / (1024.0 * 1024.0);
+        for (int m : MARKET_GIB) {
+            if (Math.abs(gib - m) < 0.05) return true;
+        }
+        return false;
     }
 
     private static ProcMem medianProcMem() {
