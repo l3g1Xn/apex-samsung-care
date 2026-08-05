@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
   <meta name="theme-color" content="#07080a" />
-  <title>Apex Care v0.1.5 beta</title>
+  <title>Apex Care v0.1.6 beta</title>
   <style>
     :root {
       --bg: #07080a; --surface: #101214; --elevated: #161a1e; --subtle: #1c2228;
@@ -13,26 +13,33 @@
       --warn: #e8b86d; --danger: #e07a7a; --ok: #5ecf8a; --info: #6eb0e0;
     }
     * { box-sizing: border-box; }
-    html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
     button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
-    button:disabled { opacity: .45; cursor: not-allowed; }
-    .app { max-width: 28rem; margin: 0 auto; min-height: 100dvh; padding-bottom: 5.25rem; }
-    header { position: sticky; top: 0; z-index: 20; background: rgba(7,8,10,0.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); padding: .75rem 1rem; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    /* Flex shell keeps bottom nav always visible (fixes Apps tab nav vanish) */
+    .app { max-width: 28rem; margin: 0 auto; height: 100%; min-height: 100vh; min-height: 100dvh;
+      display: flex; flex-direction: column; overflow: hidden; }
+    header { flex-shrink: 0; z-index: 20; background: rgba(7,8,10,0.96);
+      border-bottom: 1px solid var(--border); padding: .75rem 1rem; }
     header .row { display: flex; justify-content: space-between; align-items: center; gap: .75rem; }
     .eyebrow { font-size: 11px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin: 0; }
     h1 { font-size: 1.125rem; margin: 0; font-weight: 600; letter-spacing: -0.02em; }
-    .badge { flex-shrink: 0; border-radius: 999px; border: 1px solid #3ecfbf55; background: #3ecfbf18; color: var(--primary); font-size: 11px; font-weight: 500; padding: .25rem .65rem; }
-    main { padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+    .badge { flex-shrink: 0; border-radius: 999px; border: 1px solid #3ecfbf55; background: #3ecfbf18;
+      color: var(--primary); font-size: 11px; font-weight: 500; padding: .25rem .65rem; }
+    .shell-main { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    main { padding: 1rem; display: flex; flex-direction: column; gap: 1rem; padding-bottom: 1.25rem; }
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; padding: 1rem; }
     .center { text-align: center; }
-    .ring-wrap { display: flex; justify-content: center; margin: .25rem 0 .25rem; }
+    .ring-wrap { display: flex; justify-content: center; margin: .25rem 0; }
     .ring { position: relative; width: 160px; height: 160px; }
     .ring svg { transform: rotate(-90deg); width: 100%; height: 100%; }
     .ring .mid { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
     .ring .score { font-size: 2.25rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
     .ring .lbl { font-size: 12px; color: var(--muted); font-weight: 500; }
     .ring .sub { font-size: 11px; color: var(--faint); margin-top: 2px; }
-    .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; height: 2.75rem; padding: 0 1rem; border-radius: .5rem; font-size: .875rem; font-weight: 500; width: 100%; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; height: 2.75rem;
+      padding: 0 1rem; border-radius: .5rem; font-size: .875rem; font-weight: 500; width: 100%; }
     .btn-primary { background: var(--primary); color: var(--primary-fg); }
     .btn-secondary { background: var(--elevated); color: var(--fg); border: 1px solid var(--border); }
     .btn-sm { height: 2.25rem; font-size: 12px; padding: 0 .75rem; width: auto; }
@@ -48,7 +55,8 @@
     .row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
     .list { display: flex; flex-direction: column; gap: .5rem; }
     .item { background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; padding: .875rem; }
-    .avatar { width: 2.4rem; height: 2.4rem; border-radius: .7rem; background: var(--elevated); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--primary); flex-shrink: 0; }
+    .avatar { width: 2.4rem; height: 2.4rem; border-radius: .7rem; background: var(--elevated); display: flex;
+      align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--primary); flex-shrink: 0; }
     .chip { display: inline-flex; border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 500; }
     .chip-sys { background: var(--elevated); color: var(--faint); }
     .chip-user { background: #3ecfbf22; color: var(--primary); }
@@ -57,55 +65,76 @@
     .chip-med { background: #e8b86d22; color: var(--warn); }
     .chip-low { background: #3ecfbf22; color: var(--primary); }
     .chip-info { background: #6eb0e022; color: var(--info); }
-    .chip-warn { background: #e8b86d22; color: var(--warn); }
     .chips { display: flex; gap: .375rem; overflow-x: auto; padding-bottom: 2px; }
-    .chips button { flex-shrink: 0; border-radius: 999px; border: 1px solid var(--border); background: var(--elevated); color: var(--muted); padding: .375rem .75rem; font-size: 12px; font-weight: 500; }
+    .chips button { flex-shrink: 0; border-radius: 999px; border: 1px solid var(--border); background: var(--elevated);
+      color: var(--muted); padding: .375rem .75rem; font-size: 12px; font-weight: 500; }
     .chips button.on { border-color: #3ecfbf66; background: #3ecfbf22; color: var(--primary); }
-    nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 30; background: rgba(16,18,20,0.96); backdrop-filter: blur(10px); border-top: 1px solid var(--border); padding: .35rem .25rem max(.5rem, env(safe-area-inset-bottom)); }
-    nav .inner { max-width: 28rem; margin: 0 auto; display: flex; }
-    nav button { flex: 1; min-width: 0; min-height: 3rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: transparent; color: var(--faint); font-size: 10px; font-weight: 500; }
-    nav button.on { color: var(--primary); }
+    /* Bottom nav is flex sibling — never covered by Apps list */
+    nav.shell-nav { flex-shrink: 0; z-index: 50; background: rgba(16,18,20,0.98);
+      border-top: 1px solid var(--border); padding: .35rem .25rem max(.55rem, env(safe-area-inset-bottom)); }
+    nav.shell-nav .inner { display: flex; width: 100%; }
+    nav.shell-nav button { flex: 1; min-width: 0; min-height: 3.1rem; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 2px; color: var(--faint); font-size: 10px; font-weight: 500; }
+    nav.shell-nav button.on { color: var(--primary); }
     .search { position: relative; }
-    .search input { width: 100%; height: 2.75rem; border-radius: .75rem; border: 1px solid var(--border); background: var(--elevated); color: var(--fg); padding: 0 .75rem 0 2.4rem; font-size: .875rem; outline: none; }
+    .search input { width: 100%; height: 2.75rem; border-radius: .75rem; border: 1px solid var(--border);
+      background: var(--elevated); color: var(--fg); padding: 0 .75rem 0 2.4rem; font-size: .875rem; outline: none; }
     .search span { position: absolute; left: .75rem; top: 50%; transform: translateY(-50%); color: var(--faint); font-size: 14px; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; color: var(--faint); word-break: break-all; }
     h2 { font-size: .875rem; font-weight: 600; margin: 0 0 .5rem; }
     .mt { margin-top: .75rem; }
     .progress { height: 8px; background: var(--subtle); border-radius: 999px; overflow: hidden; }
     .progress > i { display: block; height: 100%; background: var(--primary); width: 0; transition: width .25s; }
-    /* Widget-aligned RAM cleaner */
     .widget-shell { border-radius: 1rem; border: 1px solid #3ecfbf33; background: rgba(7,8,10,0.9); padding: .75rem; }
-    .widget-inner { display: flex; align-items: center; justify-content: space-between; gap: .75rem; border-radius: .75rem; border: 1px solid var(--border); background: rgba(16,18,20,0.85); padding: .75rem .9rem; }
+    .widget-inner { display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+      border-radius: .75rem; border: 1px solid var(--border); background: rgba(16,18,20,0.85); padding: .75rem .9rem; }
     .widget-title { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--primary); }
     .widget-ram { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
     .widget-storage { font-size: 11px; color: var(--muted); margin-top: 2px; }
-    .widget-clean { flex-shrink: 0; min-width: 4rem; height: 2.25rem; border-radius: 999px; background: var(--primary); color: var(--primary-fg); font-size: 13px; font-weight: 600; padding: 0 .9rem; }
+    .widget-meta { font-size: 10px; color: var(--faint); margin-top: 3px; }
+    .widget-clean { flex-shrink: 0; min-width: 4.25rem; height: 2.35rem; border-radius: 999px; background: var(--primary);
+      color: var(--primary-fg); font-size: 13px; font-weight: 600; padding: 0 .9rem; position: relative; overflow: hidden; }
+    .widget-clean.running { animation: cleanPulse 0.9s ease-in-out infinite; }
+    .btn-primary.running { animation: cleanPulse 0.9s ease-in-out infinite; }
+    @keyframes cleanPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(62,207,191,0.45); transform: scale(1); }
+      50% { box-shadow: 0 0 0 8px rgba(62,207,191,0); transform: scale(0.98); }
+    }
+    .spin-dot { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; background: currentColor;
+      animation: bounce 0.6s ease-in-out infinite alternate; margin: 0 1px; vertical-align: middle; opacity: .9; }
+    .spin-dot:nth-child(2) { animation-delay: .12s; }
+    .spin-dot:nth-child(3) { animation-delay: .24s; }
+    @keyframes bounce { from { transform: translateY(0); opacity: .4; } to { transform: translateY(-3px); opacity: 1; } }
     .sched { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .5rem; }
-    .sched button { border-radius: .75rem; border: 1px solid var(--border); background: var(--elevated); color: var(--muted); padding: .65rem .4rem; text-align: center; }
+    .sched button { border-radius: .75rem; border: 1px solid var(--border); background: var(--elevated);
+      color: var(--muted); padding: .65rem .4rem; text-align: center; }
     .sched button.on { border-color: #3ecfbf66; background: #3ecfbf22; color: var(--primary); }
     .sched .l { font-size: 12px; font-weight: 600; }
     .sched .d { font-size: 10px; opacity: .8; margin-top: 2px; }
     a.link { color: var(--primary); text-decoration: none; font-size: 12px; }
-    a.link:hover { text-decoration: underline; }
     .history-item { border-radius: .75rem; border: 1px solid var(--border); background: var(--elevated); padding: .5rem .75rem; }
+    .clean-status { font-size: 11px; color: var(--primary); margin-top: .5rem; min-height: 1rem; }
   </style>
 </head>
 <body>
 <div class="app" id="app"></div>
 <script>
-const VERSION = "v0.1.5 beta";
-const VERSION_CODE = 15;
+const VERSION = "v0.1.6 beta";
+const VERSION_CODE = 16;
 const PACKAGE_ID = "com.apexcare.app";
 const GITHUB = "https://github.com/l3g1Xn/apex-samsung-care";
 const hasNative = typeof ApexNative !== "undefined";
 
+/* Only truly critical packages — non-vital system/OEM apps may be closed in optimize */
 const CORE_PROTECT = new Set([
-  "android","com.android.systemui","com.android.settings","com.android.phone",
-  "com.android.server.telecom","com.google.android.gms","com.google.android.gsf",
-  "com.android.inputmethod.latin","com.google.android.inputmethod.latin",
-  "com.android.permissioncontroller","com.google.android.permissioncontroller",
-  "com.android.providers.settings","com.android.providers.media","com.android.providers.telephony",
-  "com.android.bluetooth","com.android.nfc","com.android.keychain","com.android.shell",
+  "android", "com.android.systemui", "com.android.settings", "com.android.phone",
+  "com.android.server.telecom", "com.google.android.gms", "com.google.android.gsf",
+  "com.android.inputmethod.latin", "com.google.android.inputmethod.latin",
+  "com.android.permissioncontroller", "com.google.android.permissioncontroller",
+  "com.android.providers.settings", "com.android.providers.telephony",
+  "com.android.providers.contacts", "com.android.providers.media",
+  "com.android.bluetooth", "com.android.nfc", "com.android.keychain", "com.android.shell",
+  "com.android.networkstack", "com.android.networkstack.tethering",
   PACKAGE_ID
 ]);
 
@@ -122,7 +151,11 @@ const state = {
   score: 72,
   history: [],
   closing: false,
-  autoSchedule: (function(){ try { return localStorage.getItem("apex.autoSchedule") || "off"; } catch (e) { return "off"; } })(),
+  optimizing: false,
+  cleanPhase: "",
+  autoSchedule: (function () {
+    try { return localStorage.getItem("apex.autoSchedule") || "off"; } catch (e) { return "off"; }
+  })(),
   safe: {
     scanning: false, ok: false, error: null, score: null, scannedAt: null,
     findings: [], stats: null, progress: 0, phase: "",
@@ -144,7 +177,7 @@ function sevChip(sev) {
 }
 function fmtGb(n) {
   if (n == null || isNaN(n)) return "—";
-  return n.toFixed(1) + " GB";
+  return Number(n).toFixed(1) + " GB";
 }
 function escapeHtml(s) {
   return String(s == null ? "" : s)
@@ -152,20 +185,22 @@ function escapeHtml(s) {
     .split("<").join("&" + "lt;")
     .split('"').join("&" + "quot;");
 }
-function isProtected(pkg) {
+function isProtected(pkg, system) {
   if (!pkg) return true;
   if (CORE_PROTECT.has(pkg)) return true;
   if (pkg.startsWith("com.android.providers.")) return true;
-  const lower = pkg.toLowerCase();
-  if (lower.includes("telecom") || lower.includes("telephony")) return true;
+  var lower = pkg.toLowerCase();
+  if (lower.indexOf("telecom") >= 0 || lower.indexOf("telephony") >= 0) return true;
+  if (lower.indexOf("inputmethod") >= 0) return true;
+  // Non-vital system / OEM bloat is allowed
   return false;
 }
 function computeHealthScore() {
-  const m = state.mem;
+  var m = state.mem;
   if (!m) return 72;
-  let s = 100;
+  var s = 100;
   if (m.totalRamGb > 0) {
-    const usedPct = ((m.totalRamGb - m.freeRamGb) / m.totalRamGb) * 100;
+    var usedPct = ((m.totalRamGb - m.freeRamGb) / m.totalRamGb) * 100;
     s -= Math.min(35, usedPct * 0.35);
   }
   if (m.lowMemory) s -= 12;
@@ -173,7 +208,7 @@ function computeHealthScore() {
   return Math.round(Math.min(99, Math.max(18, s)));
 }
 function pushHistory(label, detail) {
-  state.history.unshift({ id: Date.now() + Math.random(), at: Date.now(), label, detail });
+  state.history.unshift({ id: Date.now() + Math.random(), at: Date.now(), label: label, detail: detail });
   state.history = state.history.slice(0, 12);
 }
 function loadMemory() {
@@ -184,26 +219,40 @@ function loadMemory() {
   } catch (e) {}
 }
 function storageLine() {
-  const m = state.mem;
+  var m = state.mem;
   if (!m) return "Storage —";
-  const pct = m.storageUsedPct != null ? Math.round(m.storageUsedPct) : null;
-  const used = m.storageUsedGb != null ? m.storageUsedGb.toFixed(1) + " GB used" : null;
+  var pct = m.storageUsedPct != null ? Math.round(m.storageUsedPct) : null;
+  var used = m.storageUsedGb != null ? Number(m.storageUsedGb).toFixed(1) + " GB used" : null;
   if (pct != null && used) return "Storage " + pct + "% · " + used;
   if (pct != null) return "Storage " + pct + "%";
   return "Storage —";
 }
+function metaLine() {
+  var m = state.mem;
+  if (!m) return "RAM — · procs —";
+  var total = m.totalRamGb != null ? Number(m.totalRamGb).toFixed(0) + " GB total" : "—";
+  var procs = m.runningProcesses != null ? m.runningProcesses + " procs" : "—";
+  var freeSt = m.storageAvailGb != null ? Number(m.storageAvailGb).toFixed(1) + " GB free disk" : "";
+  return total + " · " + procs + (freeSt ? " · " + freeSt : "");
+}
+function dotsHtml() {
+  return '<span class="spin-dot"></span><span class="spin-dot"></span><span class="spin-dot"></span>';
+}
 function ramCleanerHtml() {
-  const free = state.mem ? state.mem.freeRamGb.toFixed(1) + " GB free" : "— GB free";
-  return `<div class="widget-shell">
-    <div class="widget-inner">
-      <div style="min-width:0;flex:1">
-        <div class="widget-title">Apex Care</div>
-        <div class="widget-ram">${free}</div>
-        <div class="widget-storage">${storageLine()}</div>
-      </div>
-      <button class="widget-clean" ${state.closing ? "disabled" : ""} onclick="window.AC.clean()">${state.closing ? "…" : "Clean"}</button>
-    </div>
-  </div>`;
+  var free = state.mem ? Number(state.mem.freeRamGb).toFixed(1) + " GB free" : "— GB free";
+  var busy = state.closing || state.optimizing;
+  return '<div class="widget-shell"><div class="widget-inner">' +
+    '<div style="min-width:0;flex:1">' +
+      '<div class="widget-title">Apex Care</div>' +
+      '<div class="widget-ram">' + free + '</div>' +
+      '<div class="widget-storage">' + storageLine() + '</div>' +
+      '<div class="widget-meta">' + metaLine() + '</div>' +
+    '</div>' +
+    '<button class="widget-clean' + (busy ? ' running' : '') + '" ' + (busy ? 'disabled' : '') +
+      ' onclick="window.AC.clean()">' + (busy ? dotsHtml() : 'Clean') + '</button>' +
+  '</div>' +
+  (state.cleanPhase ? '<div class="clean-status">' + escapeHtml(state.cleanPhase) + '</div>' : '') +
+  '</div>';
 }
 
 function scanApps() {
@@ -217,15 +266,19 @@ function scanApps() {
   state.scanning = true;
   state.scanError = null;
   render();
-  setTimeout(() => {
+  setTimeout(function () {
     try {
-      const data = JSON.parse(ApexNative.scanInstalledApps());
+      var data = JSON.parse(ApexNative.scanInstalledApps());
       if (data.ok) {
-        state.apps = (data.apps || []).map(a => ({
-          ...a,
-          closeable: a.closeable !== false && !isProtected(a.packageName),
-          protectReason: isProtected(a.packageName) ? "core_os" : (a.protectReason || "none"),
-        }));
+        state.apps = (data.apps || []).map(function (a) {
+          var prot = isProtected(a.packageName, a.system);
+          return Object.assign({}, a, {
+            closeable: !prot,
+            protectReason: prot ? "core_os" : "none",
+            background: !!a.background,
+            hanging: !!a.hanging
+          });
+        });
         state.scanOk = true;
         state.scannedAt = data.scannedAt || Date.now();
         state.scanError = null;
@@ -248,7 +301,7 @@ function scanApps() {
 function runSafeScan() {
   if (!hasNative) {
     state.safe.ok = false;
-    state.safe.error = "Heuristic scanner requires the installed APK (native bridge).";
+    state.safe.error = "Heuristic scanner requires the installed APK.";
     state.safe.findings = [];
     render();
     return;
@@ -258,41 +311,35 @@ function runSafeScan() {
   state.safe.progress = 12;
   state.safe.phase = "Enumerating packages…";
   render();
-  const steps = [
+  var steps = [
     [28, "Checking install sources…"],
     [48, "Scoring PUA / malware patterns…"],
-    [68, "Reviewing weaponized permissions…"],
-    [88, "Ranking findings…"],
+    [68, "Reviewing permissions…"],
+    [88, "Ranking findings…"]
   ];
-  let i = 0;
-  const tick = () => {
+  var i = 0;
+  function tick() {
     if (i < steps.length) {
       state.safe.progress = steps[i][0];
       state.safe.phase = steps[i][1];
       i++;
       render();
-      setTimeout(tick, 200);
+      setTimeout(tick, 180);
       return;
     }
     try {
-      const data = JSON.parse(ApexNative.runHeuristicScan());
+      var data = JSON.parse(ApexNative.runHeuristicScan());
       if (data.ok) {
         state.safe.ok = true;
         state.safe.score = data.score;
         state.safe.scannedAt = data.scannedAt || Date.now();
         state.safe.findings = data.findings || [];
         state.safe.stats = {
-          packages: data.packages,
-          userApps: data.userApps,
-          systemApps: data.systemApps,
-          disabled: data.disabled,
-          sideloaded: data.sideloaded,
-          debuggable: data.debuggable,
-          highRiskPermHits: data.highRiskPermHits,
-          outdatedTarget: data.outdatedTarget,
+          packages: data.packages, userApps: data.userApps, systemApps: data.systemApps,
+          disabled: data.disabled, sideloaded: data.sideloaded, debuggable: data.debuggable,
+          highRiskPermHits: data.highRiskPermHits, outdatedTarget: data.outdatedTarget,
           findingCount: data.findingCount,
-          malwareSignals: data.malwareSignals || 0,
-          puaSignals: data.puaSignals || 0,
+          malwareSignals: data.malwareSignals || 0, puaSignals: data.puaSignals || 0
         };
         state.safe.error = null;
       } else {
@@ -310,287 +357,348 @@ function runSafeScan() {
     state.safe.phase = "Done";
     state.score = computeHealthScore();
     render();
-  };
-  setTimeout(tick, 180);
+  }
+  setTimeout(tick, 160);
 }
 
-function cleanRam() {
-  if (state.closing) return;
+function runOptimize(label) {
+  if (state.closing || state.optimizing) return;
+  state.optimizing = true;
   state.closing = true;
+  state.cleanPhase = "Scanning background apps…";
   render();
-  setTimeout(() => {
-    let closed = 0;
-    // Prefer native close for non-protected packages when available
-    if (hasNative && typeof ApexNative.closeBackgroundApp === "function") {
-      const targets = state.apps.filter(a => a.enabled && !a.system && !isProtected(a.packageName)).slice(0, 40);
-      targets.forEach(a => {
-        try {
-          const r = JSON.parse(ApexNative.closeBackgroundApp(a.packageName));
-          if (r && r.ok) closed++;
-        } catch (e) {}
-      });
+
+  var phases = [
+    [180, "Requesting filesystem access…"],
+    [360, "Closing non-vital background apps…"],
+    [560, "Releasing hanging RAM…"],
+    [760, "Trimming cache junk…"]
+  ];
+  var pi = 0;
+  function nextPhase() {
+    if (pi < phases.length) {
+      state.cleanPhase = phases[pi][1];
+      render();
+      var delay = phases[pi][0] - (pi > 0 ? phases[pi - 1][0] : 0);
+      pi++;
+      setTimeout(nextPhase, Math.max(120, delay));
+      return;
     }
-    loadMemory();
+    finish();
+  }
+
+  function finish() {
+    var closed = 0;
+    var freedHint = 0;
+    try {
+      if (hasNative && typeof ApexNative.optimizeDevice === "function") {
+        var res = JSON.parse(ApexNative.optimizeDevice());
+        if (res) {
+          closed = res.closed || 0;
+          freedHint = res.freedMb || 0;
+          if (res.mem) state.mem = res.mem;
+        }
+      } else if (hasNative && typeof ApexNative.closeBackgroundApp === "function") {
+        var targets = state.apps.filter(function (a) {
+          return a.enabled && !isProtected(a.packageName, a.system);
+        });
+        targets.forEach(function (a) {
+          try {
+            var r = JSON.parse(ApexNative.closeBackgroundApp(a.packageName));
+            if (r && r.ok) closed++;
+          } catch (e) {}
+        });
+        loadMemory();
+      } else {
+        loadMemory();
+      }
+    } catch (e) {
+      loadMemory();
+    }
+    state.optimizing = false;
     state.closing = false;
-    pushHistory("RAM cleaned", closed > 0
-      ? "Closed " + closed + " background apps · " + (state.mem ? state.mem.freeRamGb.toFixed(1) + " GB free" : "refreshed")
-      : (state.mem ? state.mem.freeRamGb.toFixed(1) + " GB free · widget action" : "Stats refreshed"));
+    state.cleanPhase = closed > 0
+      ? "Done · closed " + closed + " apps" + (freedHint ? " · ~" + Math.round(freedHint) + " MB" : "")
+      : "Done · memory refreshed";
+    state.score = computeHealthScore();
+    pushHistory(label || "Optimize complete", state.cleanPhase);
     render();
-  }, 420);
+    setTimeout(function () {
+      state.cleanPhase = "";
+      render();
+    }, 2200);
+    // refresh inventory quietly
+    if (state.scanOk) {
+      try {
+        var data = JSON.parse(ApexNative.scanInstalledApps());
+        if (data.ok) {
+          state.apps = (data.apps || []).map(function (a) {
+            var prot = isProtected(a.packageName, a.system);
+            return Object.assign({}, a, { closeable: !prot, protectReason: prot ? "core_os" : "none" });
+          });
+        }
+      } catch (e2) {}
+    }
+  }
+
+  nextPhase();
 }
 
 function ring(score, label, sub) {
-  const r = 74, c = 2 * Math.PI * r, off = c - (score / 100) * c;
-  return `<div class="ring-wrap"><div class="ring">
-    <svg viewBox="0 0 160 160"><circle cx="80" cy="80" r="${r}" fill="none" stroke="var(--subtle)" stroke-width="10"/>
-    <circle cx="80" cy="80" r="${r}" fill="none" stroke="${tone(score)}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}"/></svg>
-    <div class="mid"><div class="score">${score}</div><div class="lbl">${label}</div><div class="sub">${sub}</div></div>
-  </div></div>`;
+  var r = 74, c = 2 * Math.PI * r, off = c - (score / 100) * c;
+  return '<div class="ring-wrap"><div class="ring">' +
+    '<svg viewBox="0 0 160 160"><circle cx="80" cy="80" r="' + r + '" fill="none" stroke="var(--subtle)" stroke-width="10"/>' +
+    '<circle cx="80" cy="80" r="' + r + '" fill="none" stroke="' + tone(score) + '" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + c + '" stroke-dashoffset="' + off + '"/></svg>' +
+    '<div class="mid"><div class="score">' + score + '</div><div class="lbl">' + label + '</div><div class="sub">' + sub + '</div></div>' +
+  '</div></div>';
 }
 
 function home() {
-  const m = state.mem;
-  const userCount = state.apps.filter(a => !a.system).length;
-  const totalCount = state.apps.length;
-  const safeScore = state.safe.score;
-  const healthSub = state.score >= 80 ? "Running smoothly" : state.score >= 55 ? "Needs attention" : "Heavy load";
-  const malware = state.safe.stats ? (state.safe.stats.malwareSignals || 0) : 0;
-  const pua = state.safe.stats ? (state.safe.stats.puaSignals || 0) : 0;
+  var userCount = state.apps.filter(function (a) { return !a.system; }).length;
+  var totalCount = state.apps.length;
+  var safeScore = state.safe.score;
+  var healthSub = state.score >= 80 ? "Running smoothly" : state.score >= 55 ? "Needs attention" : "Heavy load";
+  var malware = state.safe.stats ? (state.safe.stats.malwareSignals || 0) : 0;
+  var pua = state.safe.stats ? (state.safe.stats.puaSignals || 0) : 0;
+  var busy = state.optimizing || state.closing;
 
-  return `
-    <div class="card center">
-      ${ring(state.score, "Health", healthSub)}
-      <div class="grid2 mt" style="gap:.5rem">
-        <button class="btn btn-primary" onclick="window.AC.clean()" ${state.closing?"disabled":""}>${state.closing?"Cleaning…":"Optimize now"}</button>
-        <button class="btn btn-secondary" onclick="window.AC.refreshAll()">Refresh</button>
-      </div>
-    </div>
-    <div class="card" style="padding:.875rem">
-      <div class="row" style="margin-bottom:.55rem">
-        <h2 style="margin:0">RAM cleaner</h2>
-        <span class="faint" style="text-transform:uppercase;letter-spacing:.06em;font-size:10px;font-weight:600">Same as widget</span>
-      </div>
-      ${ramCleanerHtml()}
-      <p class="faint mt" style="margin-bottom:0">Clean matches the home-screen widget — free RAM, storage, protect-aware close.</p>
-    </div>
-    <button class="stat" onclick="window.AC.tab('safe')" style="text-align:left;width:100%">
-      <div class="t">Safe score</div>
-      <div class="v">${safeScore != null ? safeScore : "—"}</div>
-      <div class="s">${state.safe.ok ? (malware + " malware · " + pua + " PUA") : "Tap to scan"}</div>
-      <div class="bar"><i style="width:${safeScore != null ? safeScore : 0}%"></i></div>
-    </button>
-    <div class="card">
-      <div class="row"><h2 style="margin:0">Installed apps</h2>
-        <button class="btn btn-sm btn-secondary" ${state.scanning ? "disabled" : ""} onclick="window.AC.scan()">${state.scanning ? "Scanning…" : "Scan device"}</button>
-      </div>
-      <p class="muted mt" style="margin-bottom:0">
-        ${state.scanOk
-          ? `Found <strong style="color:var(--fg)">${totalCount}</strong> packages · <strong style="color:var(--primary)">${userCount}</strong> user apps.`
-          : (state.scanError || "Tap Scan device to list packages on this phone.")}
-      </p>
-    </div>
-    ${state.history.length ? `
-    <div class="card">
-      <h2>Recent activity</h2>
-      <div class="list">
-        ${state.history.slice(0,5).map(h => `
-          <div class="history-item">
-            <div style="font-size:.875rem;font-weight:500">${escapeHtml(h.label)}</div>
-            <div class="faint">${new Date(h.at).toLocaleTimeString()} · ${escapeHtml(h.detail)}</div>
-          </div>`).join("")}
-      </div>
-    </div>` : ""}
-  `;
+  return '' +
+    '<div class="card center">' +
+      ring(state.score, "Health", healthSub) +
+      '<div class="grid2 mt" style="gap:.5rem">' +
+        '<button class="btn btn-primary' + (busy ? ' running' : '') + '" onclick="window.AC.optimize()" ' + (busy ? 'disabled' : '') + '>' +
+          (busy ? dotsHtml() + ' Optimizing…' : 'Optimize now') +
+        '</button>' +
+        '<button class="btn btn-secondary" onclick="window.AC.refreshAll()" ' + (busy ? 'disabled' : '') + '>Refresh</button>' +
+      '</div>' +
+      (state.cleanPhase ? '<div class="clean-status">' + escapeHtml(state.cleanPhase) + '</div>' : '') +
+    '</div>' +
+    '<div class="card" style="padding:.875rem">' +
+      '<div class="row" style="margin-bottom:.55rem">' +
+        '<h2 style="margin:0">RAM cleaner</h2>' +
+        '<span class="faint" style="text-transform:uppercase;letter-spacing:.06em;font-size:10px;font-weight:600">Same as widget</span>' +
+      '</div>' +
+      ramCleanerHtml() +
+      '<p class="faint mt" style="margin-bottom:0">Clean closes non-vital background apps (user + stock bloat). Core OS / phone / keyboard stay protected.</p>' +
+    '</div>' +
+    '<button class="stat" onclick="window.AC.tab(\'safe\')" style="text-align:left;width:100%">' +
+      '<div class="t">Safe score</div>' +
+      '<div class="v">' + (safeScore != null ? safeScore : "—") + '</div>' +
+      '<div class="s">' + (state.safe.ok ? (malware + " malware · " + pua + " PUA") : "Tap to scan") + '</div>' +
+      '<div class="bar"><i style="width:' + (safeScore != null ? safeScore : 0) + '%"></i></div>' +
+    '</button>' +
+    '<div class="card">' +
+      '<div class="row"><h2 style="margin:0">Installed apps</h2>' +
+        '<button class="btn btn-sm btn-secondary" ' + (state.scanning ? "disabled" : "") + ' onclick="window.AC.scan()">' +
+          (state.scanning ? "Scanning…" : "Scan device") + '</button></div>' +
+      '<p class="muted mt" style="margin-bottom:0">' +
+        (state.scanOk
+          ? 'Found <strong style="color:var(--fg)">' + totalCount + '</strong> packages · <strong style="color:var(--primary)">' + userCount + '</strong> user apps.'
+          : (state.scanError || "Tap Scan device to list packages on this phone.")) +
+      '</p></div>' +
+    (state.history.length ? (
+      '<div class="card"><h2>Recent activity</h2><div class="list">' +
+      state.history.slice(0, 5).map(function (h) {
+        return '<div class="history-item"><div style="font-size:.875rem;font-weight:500">' + escapeHtml(h.label) +
+          '</div><div class="faint">' + new Date(h.at).toLocaleTimeString() + ' · ' + escapeHtml(h.detail) + '</div></div>';
+      }).join("") +
+      '</div></div>'
+    ) : '');
 }
 
 function safePanel() {
-  const s = state.safe;
-  const ff = state.findingFilter;
-  let findings = s.findings.slice();
-  if (ff !== "all") findings = findings.filter(f => f.severity === ff);
-  const sub = s.score == null ? "Not scanned yet"
+  var s = state.safe;
+  var ff = state.findingFilter;
+  var findings = s.findings.slice();
+  if (ff !== "all") findings = findings.filter(function (f) { return f.severity === ff; });
+  var sub = s.score == null ? "Not scanned yet"
     : s.score >= 80 ? "Looking solid" : s.score >= 55 ? "Review findings" : "Elevated risk signals";
 
-  return `
-    <div class="card center">
-      ${s.score != null
-        ? ring(s.score, "Safe", sub)
-        : `<div class="ring-wrap"><div class="ring" style="display:flex;align-items:center;justify-content:center"><div class="mid"><div class="lbl">Safe</div><div class="sub">Local heuristics</div></div></div></div>`}
-      <p class="muted" style="margin:.5rem 0 0">On-device malware / PUA heuristics — install sources, weaponized permissions, debuggable flags, fake-cleaner patterns. No cloud DB.</p>
-      <button class="btn btn-primary mt" ${s.scanning ? "disabled" : ""} onclick="window.AC.safeScan()">
-        ${s.scanning ? s.phase : (s.ok ? "Scan again" : "Run heuristic scan")}
-      </button>
-      ${s.scanning ? `<div class="progress mt"><i style="width:${s.progress}%"></i></div><p class="faint" style="margin:.4rem 0 0">${s.progress}%</p>` : ""}
-      ${s.error ? `<p class="muted mt" style="color:var(--danger)">${escapeHtml(s.error)}</p>` : ""}
-      ${s.scannedAt && !s.scanning ? `<p class="faint mt">Last scan ${new Date(s.scannedAt).toLocaleString()}</p>` : ""}
-    </div>
-    ${s.stats ? `
-    <div class="grid2">
-      <div class="stat"><div class="t">Packages</div><div class="v">${s.stats.packages}</div><div class="s">${s.stats.userApps} user · ${s.stats.systemApps} system</div></div>
-      <div class="stat"><div class="t">Signals</div><div class="v">${s.stats.findingCount}</div><div class="s">${s.stats.sideloaded} sideload · ${s.stats.debuggable} debug</div></div>
-      <div class="stat"><div class="t">Malware signals</div><div class="v" style="color:var(--danger)">${s.stats.malwareSignals||0}</div><div class="s">Debuggable · weaponized perms</div></div>
-      <div class="stat"><div class="t">PUA signals</div><div class="v" style="color:var(--warn)">${s.stats.puaSignals||0}</div><div class="s">Fake cleaners · sideloads</div></div>
-    </div>` : ""}
-    ${s.ok ? `
-    <div class="chips">
-      ${[["all","All"],["high","High"],["medium","Medium"],["low","Low"],["info","Info"]].map(([id,l]) =>
-        `<button class="${ff===id?"on":""}" onclick="window.AC.setFindingFilter('${id}')">${l}</button>`).join("")}
-    </div>
-    <div class="list">
-      ${findings.length === 0 ? `<div class="card center muted">No findings in this filter.</div>` : findings.map(f => `
-        <div class="item">
-          <div style="display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;margin-bottom:.25rem">
-            <strong style="font-size:.875rem">${escapeHtml(f.title)}</strong>
-            <span class="chip ${sevChip(f.severity)}">${escapeHtml(f.severity)}</span>
-            ${f.kind ? `<span class="chip chip-info">${escapeHtml(f.kind)}</span>` : ""}
-          </div>
-          <p class="muted" style="margin:0">${escapeHtml(f.detail)}</p>
-          ${f.packageName ? `<div class="mono mt">${escapeHtml(f.packageName)}</div>` : ""}
-        </div>`).join("")}
-    </div>` : (s.scanning ? "" : `<div class="card muted">Run a scan to populate findings. Heuristics flag malware-capable permission combos, PUA patterns, unknown installers, debuggable builds, and outdated targets.</div>`)}
-  `;
+  return '' +
+    '<div class="card center">' +
+      (s.score != null ? ring(s.score, "Safe", sub)
+        : '<div class="ring-wrap"><div class="ring" style="display:flex;align-items:center;justify-content:center"><div class="mid"><div class="lbl">Safe</div><div class="sub">Local heuristics</div></div></div></div>') +
+      '<p class="muted" style="margin:.5rem 0 0">On-device malware / PUA heuristics. No cloud DB.</p>' +
+      '<button class="btn btn-primary mt" ' + (s.scanning ? "disabled" : "") + ' onclick="window.AC.safeScan()">' +
+        (s.scanning ? s.phase : (s.ok ? "Scan again" : "Run heuristic scan")) +
+      '</button>' +
+      (s.scanning ? '<div class="progress mt"><i style="width:' + s.progress + '%"></i></div><p class="faint" style="margin:.4rem 0 0">' + s.progress + '%</p>' : '') +
+      (s.error ? '<p class="muted mt" style="color:var(--danger)">' + escapeHtml(s.error) + '</p>' : '') +
+      (s.scannedAt && !s.scanning ? '<p class="faint mt">Last scan ' + new Date(s.scannedAt).toLocaleString() + '</p>' : '') +
+    '</div>' +
+    (s.stats ? (
+      '<div class="grid2">' +
+        '<div class="stat"><div class="t">Packages</div><div class="v">' + s.stats.packages + '</div><div class="s">' + s.stats.userApps + ' user · ' + s.stats.systemApps + ' system</div></div>' +
+        '<div class="stat"><div class="t">Signals</div><div class="v">' + s.stats.findingCount + '</div><div class="s">' + s.stats.sideloaded + ' sideload · ' + s.stats.debuggable + ' debug</div></div>' +
+        '<div class="stat"><div class="t">Malware signals</div><div class="v" style="color:var(--danger)">' + (s.stats.malwareSignals || 0) + '</div><div class="s">Weaponized perms</div></div>' +
+        '<div class="stat"><div class="t">PUA signals</div><div class="v" style="color:var(--warn)">' + (s.stats.puaSignals || 0) + '</div><div class="s">Fake cleaners</div></div>' +
+      '</div>'
+    ) : '') +
+    (s.ok ? (
+      '<div class="chips">' +
+        [["all","All"],["high","High"],["medium","Medium"],["low","Low"],["info","Info"]].map(function (pair) {
+          return '<button class="' + (ff === pair[0] ? "on" : "") + '" onclick="window.AC.setFindingFilter(\'' + pair[0] + '\')">' + pair[1] + '</button>';
+        }).join("") +
+      '</div><div class="list">' +
+      (findings.length === 0 ? '<div class="card center muted">No findings in this filter.</div>' :
+        findings.map(function (f) {
+          return '<div class="item"><div style="display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;margin-bottom:.25rem">' +
+            '<strong style="font-size:.875rem">' + escapeHtml(f.title) + '</strong>' +
+            '<span class="chip ' + sevChip(f.severity) + '">' + escapeHtml(f.severity) + '</span>' +
+            (f.kind ? '<span class="chip chip-info">' + escapeHtml(f.kind) + '</span>' : '') +
+            '</div><p class="muted" style="margin:0">' + escapeHtml(f.detail) + '</p>' +
+            (f.packageName ? '<div class="mono mt">' + escapeHtml(f.packageName) + '</div>' : '') +
+          '</div>';
+        }).join("")) +
+      '</div>'
+    ) : (s.scanning ? "" : '<div class="card muted">Run a scan to populate findings.</div>'));
 }
 
 function appsPanel() {
-  let list = state.apps.slice();
-  const f = state.filter;
-  const q = state.q.trim().toLowerCase();
-  if (f === "user") list = list.filter(a => !a.system);
-  if (f === "system") list = list.filter(a => a.system);
-  if (f === "disabled") list = list.filter(a => !a.enabled);
-  if (f === "background") list = list.filter(a => a.enabled && !a.system && !isProtected(a.packageName));
-  if (q) list = list.filter(a => (a.name || "").toLowerCase().includes(q) || (a.packageName || "").toLowerCase().includes(q));
+  var list = state.apps.slice();
+  var f = state.filter;
+  var q = state.q.trim().toLowerCase();
+  if (f === "user") list = list.filter(function (a) { return !a.system; });
+  if (f === "system") list = list.filter(function (a) { return a.system; });
+  if (f === "disabled") list = list.filter(function (a) { return !a.enabled; });
+  if (f === "background") list = list.filter(function (a) {
+    return a.enabled && !isProtected(a.packageName, a.system);
+  });
+  if (q) list = list.filter(function (a) {
+    return (a.name || "").toLowerCase().indexOf(q) >= 0 || (a.packageName || "").toLowerCase().indexOf(q) >= 0;
+  });
 
-  return `
-    <div class="card">
-      <h2>App inventory</h2>
-      <p class="muted">Live list from this device’s package manager. Background filter surfaces apps you can safely close.</p>
-      <div class="search mt"><span>⌕</span>
-        <input type="search" placeholder="Search name or package" value="${escapeHtml(state.q || "")}" oninput="window.AC.setQ(this.value)" />
-      </div>
-      <div class="chips mt">
-        ${[["all","All"],["user","User"],["system","System"],["background","Background"],["disabled","Disabled"]].map(([id,l]) =>
-          `<button class="${f===id?"on":""}" onclick="window.AC.setFilter('${id}')">${l}</button>`).join("")}
-      </div>
-      <div class="row mt"><span class="faint">${list.length} shown · ${state.apps.length} scanned</span>
-        <button class="btn btn-sm btn-secondary" ${state.scanning?"disabled":""} onclick="window.AC.scan()">${state.scanning?"Scanning…":"Rescan"}</button>
-      </div>
-    </div>
-    <div class="list">
-      ${!state.scanOk && !state.scanning ? `<div class="card center muted">${state.scanError || "Scan the device to load apps."}</div>` : ""}
-      ${state.scanning ? `<div class="card center muted">Scanning installed packages…</div>` : ""}
-      ${list.map(a => {
-        const prot = isProtected(a.packageName);
-        return `
-        <div class="item">
-          <div style="display:flex;gap:.75rem">
-            <div class="avatar">${(a.name||"?").slice(0,2).toUpperCase()}</div>
-            <div style="min-width:0;flex:1">
-              <div style="display:flex;flex-wrap:wrap;gap:.35rem;align-items:center">
-                <strong style="font-size:.875rem">${escapeHtml(a.name || a.packageName)}</strong>
-                ${a.system ? '<span class="chip chip-sys">System</span>' : '<span class="chip chip-user">User</span>'}
-                ${!a.enabled ? '<span class="chip chip-off">Disabled</span>' : ''}
-                ${prot ? '<span class="chip chip-info">Protected</span>' : ''}
-              </div>
-              <div class="mono">${escapeHtml(a.packageName || "")}</div>
-              <div class="faint" style="margin-top:.25rem">${a.versionName ? "v" + escapeHtml(a.versionName) : ""} ${a.lastUpdateTime ? "· updated " + new Date(a.lastUpdateTime).toLocaleDateString() : ""}</div>
-              ${!prot && a.enabled && !a.system ? `<button class="btn btn-sm btn-secondary mt" style="margin-top:.5rem" onclick="window.AC.closeOne('${escapeHtml(a.packageName)}')">Close</button>` : ""}
-            </div>
-          </div>
-        </div>`;
-      }).join("")}
-    </div>
-  `;
+  return '' +
+    '<div class="card">' +
+      '<h2>App inventory</h2>' +
+      '<p class="muted">Live package list. Bottom tabs stay pinned — scroll this list only.</p>' +
+      '<div class="search mt"><span>⌕</span>' +
+        '<input type="search" placeholder="Search name or package" value="' + escapeHtml(state.q || "") +
+        '" oninput="window.AC.setQ(this.value)" /></div>' +
+      '<div class="chips mt">' +
+        [["all","All"],["user","User"],["system","System"],["background","Background"],["disabled","Disabled"]].map(function (pair) {
+          return '<button class="' + (f === pair[0] ? "on" : "") + '" onclick="window.AC.setFilter(\'' + pair[0] + '\')">' + pair[1] + '</button>';
+        }).join("") +
+      '</div>' +
+      '<div class="row mt"><span class="faint">' + list.length + ' shown · ' + state.apps.length + ' scanned</span>' +
+        '<button class="btn btn-sm btn-secondary" ' + (state.scanning ? "disabled" : "") + ' onclick="window.AC.scan()">' +
+          (state.scanning ? "Scanning…" : "Rescan") + '</button></div>' +
+    '</div><div class="list">' +
+    (!state.scanOk && !state.scanning ? '<div class="card center muted">' + (state.scanError || "Scan the device to load apps.") + '</div>' : "") +
+    (state.scanning ? '<div class="card center muted">Scanning installed packages…</div>' : "") +
+    list.map(function (a) {
+      var prot = isProtected(a.packageName, a.system);
+      return '<div class="item"><div style="display:flex;gap:.75rem">' +
+        '<div class="avatar">' + (a.name || "?").slice(0, 2).toUpperCase() + '</div>' +
+        '<div style="min-width:0;flex:1">' +
+          '<div style="display:flex;flex-wrap:wrap;gap:.35rem;align-items:center">' +
+            '<strong style="font-size:.875rem">' + escapeHtml(a.name || a.packageName) + '</strong>' +
+            (a.system ? '<span class="chip chip-sys">System</span>' : '<span class="chip chip-user">User</span>') +
+            (!a.enabled ? '<span class="chip chip-off">Disabled</span>' : '') +
+            (prot ? '<span class="chip chip-info">Protected</span>' : '') +
+          '</div>' +
+          '<div class="mono">' + escapeHtml(a.packageName || "") + '</div>' +
+          '<div class="faint" style="margin-top:.25rem">' +
+            (a.versionName ? "v" + escapeHtml(a.versionName) : "") +
+            (a.lastUpdateTime ? " · updated " + new Date(a.lastUpdateTime).toLocaleDateString() : "") +
+          '</div>' +
+          (!prot && a.enabled ? '<button class="btn btn-sm btn-secondary mt" style="margin-top:.5rem" onclick="window.AC.closeOne(\'' +
+            escapeHtml(a.packageName).replace(/'/g, "") + '\')">Close background</button>' : '') +
+        '</div></div></div>';
+    }).join("") +
+    '</div>';
 }
 
 function morePanel() {
-  const sched = state.autoSchedule;
-  return `
-    <div class="card">
-      <h2>Auto-optimize</h2>
-      <p class="muted">Schedule hang-RAM cleanup preference on this device.</p>
-      <div class="sched mt">
-        ${[["off","Off","Manual only"],["nightly","Nightly","2:00 AM local"],["twice","Twice daily","9 AM + 9 PM"]].map(([id,l,d]) =>
-          `<button class="${sched===id?"on":""}" onclick="window.AC.setSchedule('${id}')"><div class="l">${l}</div><div class="d">${d}</div></button>`).join("")}
-      </div>
-    </div>
-    <div class="card">
-      <h2>RAM widget</h2>
-      <p class="muted">Long-press home → Widgets → <strong style="color:var(--fg)">Apex Care · RAM</strong>. Same free RAM · storage · Clean as Care.</p>
-      <div class="mt">${ramCleanerHtml()}</div>
-    </div>
-    <div class="card">
-      <h2>Source & releases</h2>
-      <p class="muted">Package <span class="mono">${PACKAGE_ID}</span> · ${VERSION} · versionCode ${VERSION_CODE}</p>
-      <a class="btn btn-secondary mt" href="${GITHUB}" target="_blank" rel="noreferrer" style="text-decoration:none">GitHub repository</a>
-      <p class="center mt"><a class="link" href="${GITHUB}/releases" target="_blank" rel="noreferrer">Releases on GitHub</a></p>
-    </div>
-    <div class="card">
-      <h2>About</h2>
-      <p class="muted">${VERSION}. Safe close respects core OS / telephony / keyboard. Malware & PUA heuristics run on-device. Health has no fixed phone model label.</p>
-      <p class="faint mt">Native bridge: ${hasNative ? "connected" : "unavailable"}</p>
-    </div>
-  `;
+  var sched = state.autoSchedule;
+  return '' +
+    '<div class="card"><h2>Auto-optimize</h2>' +
+      '<p class="muted">Preference for scheduled hang-RAM cleanup.</p>' +
+      '<div class="sched mt">' +
+        [["off","Off","Manual only"],["nightly","Nightly","2:00 AM local"],["twice","Twice daily","9 AM + 9 PM"]].map(function (x) {
+          return '<button class="' + (sched === x[0] ? "on" : "") + '" onclick="window.AC.setSchedule(\'' + x[0] + '\')">' +
+            '<div class="l">' + x[1] + '</div><div class="d">' + x[2] + '</div></button>';
+        }).join("") +
+      '</div></div>' +
+    '<div class="card"><h2>RAM widget</h2>' +
+      '<p class="muted">Long-press home → Widgets → <strong style="color:var(--fg)">Apex Care · RAM</strong>. Shows free/total RAM, storage, process count, Clean with run animation.</p>' +
+      '<div class="mt">' + ramCleanerHtml() + '</div></div>' +
+    '<div class="card"><h2>Source & releases</h2>' +
+      '<p class="muted">Package <span class="mono">' + PACKAGE_ID + '</span> · ' + VERSION + ' · versionCode ' + VERSION_CODE + '</p>' +
+      '<a class="btn btn-secondary mt" href="' + GITHUB + '" target="_blank" rel="noreferrer" style="text-decoration:none">GitHub repository</a>' +
+      '<p class="center mt"><a class="link" href="' + GITHUB + '/releases" target="_blank" rel="noreferrer">Releases on GitHub</a></p></div>' +
+    '<div class="card"><h2>About</h2>' +
+      '<p class="muted">' + VERSION + '. Optimize closes non-vital background apps including stock bloat; core OS / telephony / keyboard protected. File access used during clean for safe junk trim.</p>' +
+      '<p class="faint mt">Native bridge: ' + (hasNative ? "connected" : "unavailable") + '</p></div>';
 }
 
 function render() {
-  const tabs = [
-    ["home", "Care"],
-    ["apps", "Apps"],
-    ["safe", "Safe"],
-    ["more", "More"],
-  ];
-  const body = state.tab === "home" ? home()
+  var tabs = [["home","Care"],["apps","Apps"],["safe","Safe"],["more","More"]];
+  var body = state.tab === "home" ? home()
     : state.tab === "apps" ? appsPanel()
     : state.tab === "safe" ? safePanel()
     : morePanel();
-  document.getElementById("app").innerHTML = `
-    <header><div class="row"><div><p class="eyebrow">Apex Care</p><h1>Device Control</h1></div><div class="badge">${VERSION}</div></div></header>
-    <main>${body}</main>
-    <nav><div class="inner">${tabs.map(([id, label]) =>
-      `<button class="${state.tab===id?"on":""}" onclick="window.AC.tab('${id}')"><span>${label}</span></button>`).join("")}</div></nav>
-  `;
+
+  var scrollTop = 0;
+  var mainEl = document.querySelector(".shell-main");
+  if (mainEl) scrollTop = mainEl.scrollTop;
+
+  document.getElementById("app").innerHTML =
+    '<header><div class="row"><div><p class="eyebrow">Apex Care</p><h1>Device Control</h1></div>' +
+    '<div class="badge">' + VERSION + '</div></div></header>' +
+    '<div class="shell-main" id="shellMain"><main>' + body + '</main></div>' +
+    '<nav class="shell-nav" aria-label="Primary"><div class="inner">' +
+      tabs.map(function (t) {
+        return '<button type="button" class="' + (state.tab === t[0] ? "on" : "") +
+          '" onclick="window.AC.tab(\'' + t[0] + '\')"><span>' + t[1] + '</span></button>';
+      }).join("") +
+    '</div></nav>';
+
+  var restored = document.getElementById("shellMain");
+  if (restored && state.tab === "apps") restored.scrollTop = scrollTop;
 }
 
 window.AC = {
-  tab(t) {
+  tab: function (t) {
     state.tab = t;
     if (t === "apps" && !state.scanOk && !state.scanning) scanApps();
     if (t === "safe" && !state.safe.ok && !state.safe.scanning) runSafeScan();
     render();
   },
-  scan() { scanApps(); },
-  safeScan() { runSafeScan(); },
-  clean() { cleanRam(); },
-  closeOne(pkg) {
-    if (!hasNative || typeof ApexNative.closeBackgroundApp !== "function") return;
+  scan: function () { scanApps(); },
+  safeScan: function () { runSafeScan(); },
+  clean: function () { runOptimize("RAM cleaned"); },
+  optimize: function () { runOptimize("Optimize complete"); },
+  closeOne: function (pkg) {
+    if (!hasNative) return;
     if (isProtected(pkg)) return;
     try {
-      const r = JSON.parse(ApexNative.closeBackgroundApp(pkg));
+      var r = JSON.parse(ApexNative.closeBackgroundApp(pkg));
       pushHistory(r.ok ? "Closed background app" : "Close blocked", r.ok ? pkg : (r.reason || pkg));
       loadMemory();
       render();
     } catch (e) {}
   },
-  setFilter(f) { state.filter = f; render(); },
-  setFindingFilter(f) { state.findingFilter = f; render(); },
-  setSchedule(s) {
+  setFilter: function (f) { state.filter = f; render(); },
+  setFindingFilter: function (f) { state.findingFilter = f; render(); },
+  setSchedule: function (s) {
     state.autoSchedule = s;
     try { localStorage.setItem("apex.autoSchedule", s); } catch (e) {}
     pushHistory("Schedule updated", s === "off" ? "Auto-optimize off" : s === "nightly" ? "Nightly 2:00 AM" : "Twice daily");
     render();
   },
-  setQ(v) {
-    state.q = v; render();
-    const el = document.querySelector('input[type=search]');
-    if (el) { el.focus(); const n = el.value.length; el.setSelectionRange(n, n); }
+  setQ: function (v) {
+    state.q = v;
+    render();
+    var el = document.querySelector('input[type=search]');
+    if (el) { el.focus(); var n = el.value.length; el.setSelectionRange(n, n); }
   },
-  refreshAll() {
+  refreshAll: function () {
     loadMemory();
     if (state.scanOk) scanApps();
     if (state.safe.ok) runSafeScan();
     else render();
-  },
+  }
 };
 
 try {
@@ -600,7 +708,8 @@ try {
 } catch (err) {
   var el = document.getElementById("app");
   if (el) {
-    el.innerHTML = "<div style=\"padding:24px;color:#eef1f4;font-family:system-ui\"><h1 style=\"color:#3ecfbf\">Apex Care</h1><p>UI failed to start.</p><pre style=\"white-space:pre-wrap;color:#e07a7a;font-size:12px\">" + String(err && err.stack || err) + "</pre></div>";
+    el.innerHTML = '<div style="padding:24px;color:#eef1f4;font-family:system-ui"><h1 style="color:#3ecfbf">Apex Care</h1><p>UI failed to start.</p><pre style="white-space:pre-wrap;color:#e07a7a;font-size:12px">' +
+      String(err && err.stack || err) + '</pre></div>';
   }
 }
 </script>
