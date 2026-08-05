@@ -9,15 +9,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.StatFs;
 import android.widget.RemoteViews;
 import android.widget.Toast;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -105,20 +101,19 @@ public class RamCleanerWidget extends AppWidgetProvider {
     static void updateWidget(Context context, AppWidgetManager manager, int appWidgetId, String btnOverride) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_ram_cleaner);
 
-        MemoryStats stats = readStats(context);
+        RamMetrics ram = RamMetrics.sample(context);
         boolean rooted = hasRoot();
-        // Primary: free RAM percentage (MemAvailable multi-sample median)
+        // free% = available/total; used = total-available (never inverted)
         views.setTextViewText(R.id.widget_title,
                 rooted ? "Apex Care · ROOT" : "Apex Care");
         views.setTextViewText(R.id.widget_ram,
-                String.format(Locale.US, "%.0f%% free", stats.freeRamPct));
+                String.format(Locale.US, "%d%% free", ram.freePct));
         views.setTextViewText(R.id.widget_storage,
-                String.format(Locale.US, "%.1f / %.1f GB free · disk %.1f free",
-                        stats.freeRamGb, stats.totalRamGb, stats.freeStorageGb));
+                String.format(Locale.US, "%.1f GB free of %.1f · %.1f used",
+                        ram.freeGb, ram.totalGb, ram.usedGb));
         views.setTextViewText(R.id.widget_meta,
-                String.format(Locale.US, "%d procs · used %.0f%% · %s",
-                        stats.runningProcesses, stats.usedRamPct,
-                        stats.model != null && !stats.model.isEmpty() ? stats.model : "Android"));
+                String.format(Locale.US, "%d%% used · %d procs · disk %.1f free",
+                        ram.usedPct, ram.runningProcesses, ram.storageAvailGb));
 
         views.setTextViewText(R.id.widget_clean_btn,
                 btnOverride != null ? btnOverride : context.getString(R.string.widget_clean));
@@ -166,7 +161,7 @@ public class RamCleanerWidget extends AppWidgetProvider {
     /** Force-close non-protected running packages (root am force-stop when available). */
     private static CleanResult runForceClean(Context context) {
         CleanResult cr = new CleanResult();
-        long before = readAvailBytes();
+        long before = readAvailBytes(context);
         cr.hasRoot = hasRoot();
         try {
             ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
@@ -215,104 +210,16 @@ public class RamCleanerWidget extends AppWidgetProvider {
             try { Thread.sleep(80); } catch (InterruptedException ignored) {}
         } catch (Exception ignored) {
         }
-        long after = readAvailBytes();
+        long after = readAvailBytes(context);
         cr.freedGb = Math.max(0, after - before) / (1024.0 * 1024.0 * 1024.0);
         return cr;
     }
 
-    private static long readAvailBytes() {
-        long avail = -1;
-        try (BufferedReader br = new BufferedReader(new FileReader("/proc/meminfo"))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (line.startsWith("MemAvailable:")) {
-                    String[] parts = line.split("\\s+");
-                    avail = Long.parseLong(parts[1]) * 1024L;
-                    break;
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        if (avail < 0) {
-            try {
-                // fallback via ActivityManager not available statically without context — 0
-                return 0;
-            } catch (Exception e) {
-                return 0;
-            }
-        }
-        return avail;
-    }
-
-    static MemoryStats readStats(Context context) {
-        MemoryStats s = new MemoryStats();
+    private static long readAvailBytes(Context context) {
         try {
-            s.model = android.os.Build.MODEL != null ? android.os.Build.MODEL : "";
-            long total = -1, available = -1;
-            java.util.ArrayList<Long> samples = new java.util.ArrayList<>();
-            for (int si = 0; si < 5; si++) {
-                try (BufferedReader br = new BufferedReader(new FileReader("/proc/meminfo"))) {
-                    String line;
-                    long sampleAvail = -1;
-                    while ((line = br.readLine()) != null) {
-                        if (line.startsWith("MemTotal:")) {
-                            total = Long.parseLong(line.split("\\s+")[1]) * 1024L;
-                        } else if (line.startsWith("MemAvailable:")) {
-                            sampleAvail = Long.parseLong(line.split("\\s+")[1]) * 1024L;
-                        }
-                    }
-                    if (sampleAvail > 0) samples.add(sampleAvail);
-                } catch (Exception ignored) {
-                }
-                try { Thread.sleep(20); } catch (InterruptedException ignored) {}
-            }
-            if (!samples.isEmpty()) {
-                java.util.Collections.sort(samples);
-                available = samples.get(samples.size() / 2);
-            }
-            ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-            if (am != null) {
-                ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
-                am.getMemoryInfo(mi);
-                if (total <= 0) total = mi.totalMem;
-                if (available <= 0) available = mi.availMem;
-                List<ActivityManager.RunningAppProcessInfo> procs = am.getRunningAppProcesses();
-                s.runningProcesses = procs != null ? procs.size() : 0;
-            }
-            double gib = 1024.0 * 1024.0 * 1024.0;
-            s.totalRamGb = total / gib;
-            s.freeRamGb = available / gib;
-            s.usedRamGb = Math.max(0, total - available) / gib;
-            s.usedRamPct = total > 0 ? ((total - available) * 100.0) / total : 0;
-            s.freeRamPct = total > 0 ? (available * 100.0) / total : 0;
-        } catch (Exception ignored) {
+            return RamMetrics.sample(context).availKb * 1024L;
+        } catch (Exception e) {
+            return 0;
         }
-        try {
-            StatFs stat = new StatFs(Environment.getDataDirectory().getPath());
-            long blockSize = stat.getBlockSizeLong();
-            long total = stat.getBlockCountLong() * blockSize;
-            long avail = stat.getAvailableBlocksLong() * blockSize;
-            long used = total - avail;
-            s.usedStorageGb = used / (1024.0 * 1024.0 * 1024.0);
-            s.freeStorageGb = avail / (1024.0 * 1024.0 * 1024.0);
-            s.totalStorageGb = total / (1024.0 * 1024.0 * 1024.0);
-            if (total > 0) s.storageUsedPct = (used * 100.0) / total;
-        } catch (Exception ignored) {
-        }
-        return s;
-    }
-
-    static class MemoryStats {
-        double freeRamGb = 0;
-        double usedRamGb = 0;
-        double totalRamGb = 0;
-        double usedRamPct = 0;
-        double freeRamPct = 0;
-        double usedStorageGb = 0;
-        double freeStorageGb = 0;
-        double totalStorageGb = 0;
-        double storageUsedPct = 0;
-        int runningProcesses = 0;
-        String model = "";
     }
 }

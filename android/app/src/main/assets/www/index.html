@@ -283,17 +283,37 @@ function loadMemory() {
     applyMem(JSON.parse(ApexNative.getMemoryStats()));
   } catch (e) {}
 }
+function freePctOf(m) {
+  if (!m) return null;
+  // Prefer explicit free/available; never treat used as free
+  if (m.freeRamPct != null && m.freeRamPct !== "") return Math.round(Number(m.freeRamPct));
+  if (m.availablePct != null) return Math.round(Number(m.availablePct));
+  var freeGb = m.freeRamGb != null ? Number(m.freeRamGb) : (m.availableGb != null ? Number(m.availableGb) : null);
+  var total = Number(m.totalRamGb || 0);
+  if (freeGb != null && total > 0) return Math.round((freeGb / total) * 100);
+  return null;
+}
+function usedPctOf(m) {
+  if (!m) return null;
+  if (m.usedRamPct != null && m.usedRamPct !== "") return Math.round(Number(m.usedRamPct));
+  if (m.inUsePct != null) return Math.round(Number(m.inUsePct));
+  var fp = freePctOf(m);
+  return fp != null ? Math.max(0, 100 - fp) : null;
+}
 function freeRamLine() {
   var m = state.mem;
-  if (!m) return "— / — GB free";
-  return Number(m.freeRamGb).toFixed(1) + " / " + Number(m.totalRamGb).toFixed(1) + " GB free";
+  if (!m) return "— GB free of —";
+  var freeGb = m.freeRamGb != null ? Number(m.freeRamGb) : Number(m.availableGb || 0);
+  var total = Number(m.totalRamGb || 0);
+  var fp = freePctOf(m);
+  return freeGb.toFixed(1) + " GB free of " + total.toFixed(1) + (fp != null ? " (" + fp + "%)" : "");
 }
 function usedRamLine() {
   var m = state.mem;
   if (!m) return "Used —";
-  var used = m.usedRamGb != null ? m.usedRamGb : Math.max(0, m.totalRamGb - m.freeRamGb);
-  var pct = m.usedRamPct != null ? m.usedRamPct : (m.totalRamGb > 0 ? (used / m.totalRamGb) * 100 : 0);
-  return "Used " + Number(used).toFixed(1) + " GB (" + Math.round(pct) + "%)";
+  var used = m.usedRamGb != null ? Number(m.usedRamGb) : Number(m.inUseGb != null ? m.inUseGb : Math.max(0, m.totalRamGb - m.freeRamGb));
+  var pct = usedPctOf(m);
+  return "Used " + used.toFixed(1) + " GB" + (pct != null ? " (" + pct + "%)" : "");
 }
 function storageLine() {
   var m = state.mem;
@@ -306,9 +326,11 @@ function metaLine() {
   var m = state.mem;
   if (!m) return "procs —";
   var procs = m.runningProcesses != null ? m.runningProcesses + " procs" : "—";
-  var freePct = m.freeRamPct != null ? Math.round(m.freeRamPct) + "% free" : "";
+  var fp = freePctOf(m);
+  var up = usedPctOf(m);
+  var ram = (fp != null ? fp + "% free" : "") + (up != null ? " · " + up + "% used" : "");
   var root = state.realRoot ? "magisk-root" : state.hasRoot ? "temp-root" : "no-root";
-  return procs + (freePct ? " · " + freePct : "") + " · " + root;
+  return procs + (ram ? " · " + ram : "") + " · " + root;
 }
 function dotsHtml() {
   return '<span class="spin-dot"></span><span class="spin-dot"></span><span class="spin-dot"></span>';
@@ -318,7 +340,8 @@ function ramCleanerHtml() {
   return '<div class="widget-shell"><div class="widget-inner">' +
     '<div style="min-width:0;flex:1">' +
       '<div class="widget-title">Apex Care</div>' +
-      '<div class="widget-ram">' + freeRamLine() + '</div>' +
+      '<div class="widget-ram">' + (freePctOf(state.mem) != null ? freePctOf(state.mem) + '% free' : '—% free') + '</div>' +
+      '<div class="widget-storage">' + freeRamLine() + '</div>' +
       '<div class="widget-storage">' + usedRamLine() + ' · ' + storageLine() + '</div>' +
       '<div class="widget-meta">' + metaLine() + '</div>' +
     '</div>' +
@@ -592,7 +615,10 @@ function home() {
   var pua = state.safe.stats ? (state.safe.stats.puaSignals || 0) : 0;
   var busy = state.optimizing || state.closing;
   var m = state.mem;
-  var usedPct = m && m.usedRamPct != null ? Math.round(m.usedRamPct) : 0;
+  var freePct = freePctOf(m);
+  var usedPct = usedPctOf(m);
+  if (freePct == null) freePct = 0;
+  if (usedPct == null) usedPct = 0;
 
   return '' +
     '<div class="card center">' +
@@ -623,8 +649,11 @@ function home() {
         '<span class="faint" style="text-transform:uppercase;letter-spacing:.06em;font-size:10px;font-weight:600">Live stats</span>' +
       '</div>' +
       ramCleanerHtml() +
-      '<div class="bar mt"><i style="width:' + (100 - usedPct) + '%"></i></div>' +
-      '<p class="faint mt" style="margin-bottom:0">Free/total from /proc/meminfo + ActivityManager. Clean force-closes non-vital apps.</p>' +
+      '<div class="bar mt"><i style="width:' + freePct + '%"></i></div>' +
+      '<p class="faint mt" style="margin-bottom:0">' +
+        freePct + '% free · ' + usedPct + '% used · matches free=available, used=total−available (Device Care style).' +
+        (m && m.memSource ? ' · ' + m.memSource : '') +
+      '</p>' +
     '</div>' +
     '<button class="stat" onclick="window.AC.tab(\'safe\')" style="text-align:left;width:100%">' +
       '<div class="t">Safe score</div>' +

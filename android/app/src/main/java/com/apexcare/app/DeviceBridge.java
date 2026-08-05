@@ -14,14 +14,11 @@ import android.webkit.JavascriptInterface;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 public class DeviceBridge {
@@ -86,80 +83,17 @@ public class DeviceBridge {
         } catch (Exception e) { return errorJson(e); }
     }
 
-    private long parseKb(String line) {
-        try { String[] p = line.split("\\s+"); if (p.length >= 2) return Long.parseLong(p[1]); } catch (Exception ignored) {}
-        return 0;
-    }
-
-    private long[] readMem() {
-        long total = 0, avail = 0, free = 0, buffers = 0, cached = 0, srec = 0;
-        try (BufferedReader br = new BufferedReader(new FileReader("/proc/meminfo"))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (line.startsWith("MemTotal:")) total = parseKb(line);
-                else if (line.startsWith("MemAvailable:")) avail = parseKb(line);
-                else if (line.startsWith("MemFree:")) free = parseKb(line);
-                else if (line.startsWith("Buffers:")) buffers = parseKb(line);
-                else if (line.startsWith("Cached:")) cached = parseKb(line);
-                else if (line.startsWith("SReclaimable:")) srec = parseKb(line);
-            }
-        } catch (Exception e) { Log.w(TAG, "meminfo", e); }
-        if (avail <= 0) avail = free + buffers + cached + srec;
-        return new long[]{avail, total};
-    }
-
-    private long[] medianMem() {
-        List<Long> av = new ArrayList<>(); long total = 0;
-        for (int i = 0; i < 5; i++) {
-            long[] s = readMem();
-            if (s[0] > 0) av.add(s[0]);
-            if (s[1] > 0) total = s[1];
-            try { Thread.sleep(20); } catch (InterruptedException ignored) {}
-        }
-        if (av.isEmpty()) return new long[]{0, total};
-        Collections.sort(av);
-        return new long[]{av.get(av.size()/2), total};
-    }
-
     @JavascriptInterface
     public String getMemoryStats() {
         try {
-            long[] m = medianMem();
-            long availKb = m[0], totalKb = m[1];
-            ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-            ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
-            if (am != null) am.getMemoryInfo(mi);
-            if (totalKb <= 0 && mi.totalMem > 0) totalKb = mi.totalMem / 1024;
-            if (availKb <= 0 && mi.availMem > 0) availKb = mi.availMem / 1024;
-            int freePct = totalKb > 0 ? (int) Math.round(100.0 * availKb / totalKb) : 0;
-            JSONObject o = new JSONObject();
-            o.put("ok", true);
-            o.put("freeRamPct", freePct);
-            o.put("usedRamPct", 100 - freePct);
-            o.put("totalRamGb", totalKb / (1024.0 * 1024.0));
-            o.put("freeRamGb", availKb / (1024.0 * 1024.0));
-            o.put("usedRamGb", Math.max(0, totalKb - availKb) / (1024.0 * 1024.0));
-            o.put("lowMemory", mi.lowMemory);
-            o.put("hasRoot", hasRoot());
-            int procs = 0;
-            if (am != null) {
-                List<ActivityManager.RunningAppProcessInfo> list = am.getRunningAppProcesses();
-                procs = list != null ? list.size() : 0;
-            }
-            o.put("runningProcesses", procs);
-            try {
-                StatFs stat = new StatFs(Environment.getDataDirectory().getPath());
-                long block = stat.getBlockSizeLong();
-                long total = stat.getBlockCountLong() * block;
-                long avail = stat.getAvailableBlocksLong() * block;
-                o.put("storageAvailGb", avail / (1024.0 * 1024 * 1024));
-                o.put("storageUsedPct", total > 0 ? ((total - avail) * 100.0) / total : 0);
-            } catch (Exception ignored) {}
+            RamMetrics ram = RamMetrics.sample(context);
+            JSONObject o = ram.toJson(hasRoot());
             return o.toString();
         } catch (Exception e) { return errorJson(e); }
     }
 
     @JavascriptInterface public String getMemoryInfo() { return getMemoryStats(); }
+
 
     @JavascriptInterface
     public String forceCloseApp(String packageName) {
