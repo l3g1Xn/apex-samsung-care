@@ -15,46 +15,45 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - uses: android-actions/setup-android@v3
-
-      - name: Decode icons
-        run: |
-          mkdir -p android/app/src/main/res/mipmap-hdpi android/app/src/main/res/mipmap-mdpi
-          base64 -d android/app/src/main/res/mipmap-hdpi/ic_launcher.png.b64 > android/app/src/main/res/mipmap-hdpi/ic_launcher.png || true
-          base64 -d android/app/src/main/res/mipmap-mdpi/ic_launcher.png.b64 > android/app/src/main/res/mipmap-mdpi/ic_launcher.png || true
-          if [ ! -s android/app/src/main/res/mipmap-hdpi/ic_launcher.png ]; then
-            printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82' > android/app/src/main/res/mipmap-hdpi/ic_launcher.png
-            cp android/app/src/main/res/mipmap-hdpi/ic_launcher.png android/app/src/main/res/mipmap-mdpi/ic_launcher.png
-          fi
 
       - name: local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 
       - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
 
-      - name: Build APK
+      - name: Build release APK
         working-directory: android
-        run: gradle assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Stage APK
         run: |
           mkdir -p dist
-          cp android/app/build/outputs/apk/debug/app-debug.apk dist/ApexCare-v0.1.4-beta.apk
-          ls -lh dist/ApexCare-v0.1.4-beta.apk
+          SRC=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          cp "$SRC" dist/ApexCare-v0.1.6-beta.apk
+          ls -lh dist/ApexCare-v0.1.6-beta.apk
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.4-beta
-          name: Apex Care v0.1.4 beta
+          tag_name: v0.1.6-beta
+          name: Apex Care v0.1.6 beta
           prerelease: true
-          files: dist/ApexCare-v0.1.4-beta.apk
+          make_latest: true
+          files: dist/ApexCare-v0.1.6-beta.apk
           body: |
-            Apex Care v0.1.4 beta — package com.apexcare.app, versionCode 14.
-            On-device app scan, Safe heuristics, RAM widget. Store section removed.
+            ## Apex Care v0.1.6 beta
+
+            Package `com.apexcare.app` · versionCode **16** · versionName **0.1.6-beta**
+
+            - Care health score + Optimize / Clean (non-vital background apps)
+            - Protect rules for core OS / telephony / keyboard
+            - Safe local malware / PUA heuristics
+            - Apps inventory with pinned bottom nav
+            - RAM widget: free/total RAM, disk free, process count, animated Clean
+
+            Install: uninstall older Apex Care → install this APK → badge **v0.1.6 beta**.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

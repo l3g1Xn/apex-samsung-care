@@ -1,14 +1,18 @@
-# Android
+# Android build / local config
 android/.gradle/
 android/build/
 android/app/build/
 android/local.properties
 android/*.jks
 android/*.keystore
+android/keystore.properties
 *.apk
 *.aab
 *.dex
 *.class
+
+# Staged release output (CI only)
+dist/
 
 # IDE / OS
 .idea/
@@ -17,9 +21,8 @@ android/*.keystore
 .DS_Store
 Thumbs.db
 
-# Node (if web tree added later)
+# Node (web preview tree, if ever added)
 node_modules/
-dist/
 .output/
 .nitro/
 .tanstack/

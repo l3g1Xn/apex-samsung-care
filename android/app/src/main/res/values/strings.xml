@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">Apex Care</string>
     <string name="widget_name">Apex Care · RAM</string>
-    <string name="widget_description">Transparent RAM cleaner. Shows free memory and storage used. Tap Clean to free RAM.</string>
+    <string name="widget_description">Free / total RAM, disk free, process count. Tap Clean to free non-vital background apps.</string>
     <string name="widget_clean">Clean</string>
     <string name="widget_ram_label">Free RAM</string>
-    <string name="widget_storage_label">Storage used</string>
+    <string name="widget_storage_label">Storage</string>
 </resources>
