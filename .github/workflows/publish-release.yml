@@ -97,24 +97,19 @@ jobs:
 
             Package `com.apexcare.app` · versionCode **18** · versionName **1.0.0**
 
-            **This release replaces all prior APKs.** Signed universal (v1 + v2 + v3). Only asset: `ApexCare-v1.0.0.apk`.
+            **Sole release** — replaces all prior APKs. Signed universal (v1 + v2 + v3).  
+            Only asset: `ApexCare-v1.0.0.apk`
 
-            ### Magisk + Temporary Root
-            **Grant Temporary Root** from inside the app:
-            1. Detects Magisk Manager (e.g. 307000) and opens it when useful
-            2. **Boot patched:** Magisk Superuser `su` → badge **MAGISK ROOT** + live force-stop
-            3. **App only / Superuser empty:** userspace **TEMP ROOT** (proot-style, 30 min)
-            4. Optimize / Clean use real `am force-stop` only with Magisk grant; else multi-pass kill
+            ### Highlights
+            - **RAM free/used fixed** (Device Care aligned): free = available, used = total − free
+            - Magisk Grant Root + userspace TEMP ROOT when Superuser empty
+            - Universal Samsung APK · widget free% corrected
 
             ### Install
             1. **Uninstall any older Apex Care** first
-            2. Download **ApexCare-v1.0.0.apk** only (ignore any old mirrors)
-            3. Allow install → open app → **Grant Temporary Root**
+            2. Download **ApexCare-v1.0.0.apk** only
+            3. Install → open → check free% vs Device Care
             4. Badge **v1.0.0**
-
-            ### Compatibility
-            - minSdk **24** / targetSdk **34** · universal APK (no ABI splits)
-            - Samsung One UI · Magisk optional
 
             Demo signing for sideload — not Play Store.
         env:
