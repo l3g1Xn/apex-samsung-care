@@ -2,6 +2,9 @@ name: Publish Release
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: write
@@ -11,22 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Delete v0.1.7-beta release and tag
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          gh release delete v0.1.7-beta --yes --cleanup-tag 2>/dev/null || true
-          git push origin :refs/tags/v0.1.7-beta 2>/dev/null || true
-          echo "v0.1.7-beta removed (or was already gone)"
-
-      - name: Delete existing v1.0.0 if present (recreate)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release delete v1.0.0 --yes --cleanup-tag 2>/dev/null || true
-          git push origin :refs/tags/v1.0.0 2>/dev/null || true
 
       - uses: actions/setup-java@v4
         with:
@@ -41,48 +28,54 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build release APK
-        id: build
-        continue-on-error: true
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Stage APK if build succeeded
-        if: steps.build.outcome == 'success'
+      - name: Stage APK
         run: |
+          set -e
           mkdir -p dist
           SRC=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          test -f "$SRC"
           cp "$SRC" dist/ApexCare-v1.0.0.apk
           ls -lh dist/ApexCare-v1.0.0.apk
 
-      - name: Publish v1.0.0 pre-release
+      - name: Recreate v1.0.0 release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          gh release delete v1.0.0 --yes --cleanup-tag 2>/dev/null || true
+          git push origin :refs/tags/v1.0.0 2>/dev/null || true
+
+      - name: Publish v1.0.0
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.0
           name: Apex Care v1.0.0 — Full Send Edition
-          prerelease: true
+          prerelease: false
           make_latest: true
-          files: |
-            dist/ApexCare-v1.0.0.apk
-          fail_on_unmatched_files: false
+          files: dist/ApexCare-v1.0.0.apk
+          fail_on_unmatched_files: true
           body: |
-            ## Apex Care v1.0.0 (pre-release) — Full Send Edition
+            ## Apex Care v1.0.0 — Full Send Edition
 
             Package `com.apexcare.app` · versionCode **18** · versionName **1.0.0**
 
-            ### What's new
-            - Properly scaled bottom nav (Care · Running · Safe · More)
-            - MAGA Hot Wheels splash that fades after open
-            - Grant Temporary Root for deeper `am force-stop` when Magisk/su is present
-            - Accurate free-RAM % (MemAvailable multi-sample median)
-            - Running Apps & Processes + Safe auto-close
+            ### What's in this build
+            - Free-RAM % from multi-sample **MemAvailable** median
+            - Optimize / Clean with root `am force-stop` when Magisk/su grants access
+            - **Grant Temporary Root** in-app (no APK can auto-root on install)
+            - Running Apps & Processes + Safe heuristics + auto-close
+            - Resizable RAM widget (free % primary, ROOT badge, real Clean)
+            - Scaled bottom nav · flame splash · badge **v1.0.0**
 
             ### Install
-            1. Uninstall older Apex Care
-            2. Install the APK from this release (or upload if CI build failed)
-            3. Badge should read **v1.0.0**
+            1. Uninstall any older Apex Care
+            2. Download **ApexCare-v1.0.0.apk** below
+            3. Allow unknown sources → install → open
+            4. Badge should read **v1.0.0**
 
-            Root is optional. Android cannot auto-grant root on APK install.
-
-            **Note:** `v0.1.7-beta` has been removed.
+            Root is optional. Physics is not a participation trophy.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
