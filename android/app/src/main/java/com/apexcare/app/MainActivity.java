@@ -21,6 +21,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        RamMetrics.sample(this); // hardware RAM scan + cache on install/open
         setContentView(R.layout.activity_main);
 
         webView = findViewById(R.id.webview);

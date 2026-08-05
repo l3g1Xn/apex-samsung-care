@@ -106,11 +106,12 @@ public class RamCleanerWidget extends AppWidgetProvider {
         // free% = available/total; used = total-available (never inverted)
         views.setTextViewText(R.id.widget_title,
                 rooted ? "Apex Care · ROOT" : "Apex Care");
+        // Device Care model: free% primary; used GB of total secondary
         views.setTextViewText(R.id.widget_ram,
                 String.format(Locale.US, "%d%% free", ram.freePct));
         views.setTextViewText(R.id.widget_storage,
-                String.format(Locale.US, "%.1f GB free of %.1f · %.1f used",
-                        ram.freeGb, ram.totalGb, ram.usedGb));
+                String.format(Locale.US, "Used %.1f / %.1f GB · Avail %.1f",
+                        ram.usedGb, ram.totalGb, ram.freeGb));
         views.setTextViewText(R.id.widget_meta,
                 String.format(Locale.US, "%d%% used · %d procs · disk %.1f free",
                         ram.usedPct, ram.runningProcesses, ram.storageAvailGb));
