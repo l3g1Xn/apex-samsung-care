@@ -16,6 +16,9 @@ import android.os.StatFs;
 import android.widget.RemoteViews;
 import android.widget.Toast;
 
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.FileReader;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -47,6 +50,7 @@ public class RamCleanerWidget extends AppWidgetProvider {
         PROTECTED.add("com.android.nfc");
         PROTECTED.add("com.android.keychain");
         PROTECTED.add("com.android.shell");
+        PROTECTED.add("com.android.vending");
     }
 
     @Override
@@ -61,18 +65,18 @@ public class RamCleanerWidget extends AppWidgetProvider {
         super.onReceive(context, intent);
         String action = intent != null ? intent.getAction() : null;
         if (ACTION_CLEAN_RAM.equals(action)) {
-            // Animate Clean button across all widgets
             setAllButtons(context, "…");
-            HANDLER.postDelayed(() -> setAllButtons(context, "···"), 180);
+            HANDLER.postDelayed(() -> setAllButtons(context, "···"), 160);
             HANDLER.postDelayed(() -> {
-                int closed = runClean(context);
+                CleanResult r = runForceClean(context);
                 refreshAll(context);
                 setAllButtons(context, "Done");
-                Toast.makeText(context,
-                        "Apex Care · closed " + closed + " bg apps",
-                        Toast.LENGTH_SHORT).show();
-            }, 420);
-            HANDLER.postDelayed(() -> setAllButtons(context, context.getString(R.string.widget_clean)), 1600);
+                String msg = r.hasRoot
+                        ? "Force-closed " + r.closed + " · +" + String.format(Locale.US, "%.1f", r.freedGb) + " GB free"
+                        : "Closed " + r.closed + " bg · +" + String.format(Locale.US, "%.1f", r.freedGb) + " GB";
+                Toast.makeText(context, "Apex Care · " + msg, Toast.LENGTH_SHORT).show();
+            }, 400);
+            HANDLER.postDelayed(() -> setAllButtons(context, context.getString(R.string.widget_clean)), 1700);
         } else if (ACTION_REFRESH.equals(action)
                 || AppWidgetManager.ACTION_APPWIDGET_UPDATE.equals(action)) {
             refreshAll(context);
@@ -103,14 +107,15 @@ public class RamCleanerWidget extends AppWidgetProvider {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_ram_cleaner);
 
         MemoryStats stats = readStats(context);
+        // Accurate free / total from same source as in-app
         views.setTextViewText(R.id.widget_ram,
-                String.format(Locale.US, "%.1f / %.0f GB free", stats.freeRamGb, stats.totalRamGb));
+                String.format(Locale.US, "%.1f / %.1f GB free", stats.freeRamGb, stats.totalRamGb));
         views.setTextViewText(R.id.widget_storage,
-                String.format(Locale.US, "Disk %.0f%% used · %.1f GB free",
-                        stats.storageUsedPct, stats.freeStorageGb));
+                String.format(Locale.US, "Used %.1f GB (%.0f%%) · disk %.1f free",
+                        stats.usedRamGb, stats.usedRamPct, stats.freeStorageGb));
         views.setTextViewText(R.id.widget_meta,
-                String.format(Locale.US, "%d procs · %s",
-                        stats.runningProcesses,
+                String.format(Locale.US, "%d procs · %.0f%% RAM free · %s",
+                        stats.runningProcesses, stats.freeRamPct,
                         stats.model != null && !stats.model.isEmpty() ? stats.model : "Android"));
 
         views.setTextViewText(R.id.widget_clean_btn,
@@ -142,70 +147,155 @@ public class RamCleanerWidget extends AppWidgetProvider {
                 || lower.contains("inputmethod") || pkg.startsWith("com.android.providers.");
     }
 
-    /** Kill non-protected background processes; return count attempted. */
-    private static int runClean(Context context) {
-        int closed = 0;
+    private static boolean hasRoot() {
+        try {
+            Process p = Runtime.getRuntime().exec(new String[]{"su", "-c", "id"});
+            BufferedReader r = new BufferedReader(new java.io.InputStreamReader(p.getInputStream()));
+            String line = r.readLine();
+            int code = p.waitFor();
+            r.close();
+            return code == 0 && line != null && line.contains("uid=0");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static boolean runAsRoot(String cmd) {
+        Process p = null;
+        DataOutputStream os = null;
+        try {
+            p = Runtime.getRuntime().exec("su");
+            os = new DataOutputStream(p.getOutputStream());
+            os.writeBytes(cmd + "\n");
+            os.writeBytes("exit\n");
+            os.flush();
+            return p.waitFor() == 0;
+        } catch (Exception e) {
+            return false;
+        } finally {
+            try { if (os != null) os.close(); } catch (Exception ignored) {}
+            if (p != null) p.destroy();
+        }
+    }
+
+    private static class CleanResult {
+        int closed;
+        double freedGb;
+        boolean hasRoot;
+    }
+
+    /** Force-close non-protected running packages (root am force-stop when available). */
+    private static CleanResult runForceClean(Context context) {
+        CleanResult cr = new CleanResult();
+        long before = readAvailBytes();
+        cr.hasRoot = hasRoot();
         try {
             ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-            if (am == null) return 0;
+            if (am == null) return cr;
             List<ActivityManager.RunningAppProcessInfo> procs = am.getRunningAppProcesses();
             Set<String> seen = new HashSet<>();
             if (procs != null) {
                 for (ActivityManager.RunningAppProcessInfo p : procs) {
-                    if (p.importance < ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE) continue;
                     if (p.pkgList == null) continue;
                     for (String pkg : p.pkgList) {
                         if (seen.contains(pkg) || isProtected(context, pkg)) continue;
                         seen.add(pkg);
-                        try {
-                            am.killBackgroundProcesses(pkg);
-                            closed++;
-                        } catch (Exception ignored) {
+                        if (cr.hasRoot) {
+                            runAsRoot("am force-stop " + pkg);
+                            runAsRoot("kill -9 " + p.pid);
+                        } else {
+                            try { am.killBackgroundProcesses(pkg); } catch (Exception ignored) {}
                         }
+                        cr.closed++;
                     }
                 }
             }
-            // Also hit installed non-vital packages
+            // Non-vital OEM helpers
             try {
                 PackageManager pm = context.getPackageManager();
                 List<ApplicationInfo> apps = pm.getInstalledApplications(0);
                 for (ApplicationInfo ai : apps) {
-                    if (isProtected(context, ai.packageName)) continue;
-                    if (seen.contains(ai.packageName)) continue;
+                    if (isProtected(context, ai.packageName) || seen.contains(ai.packageName)) continue;
                     String p = ai.packageName.toLowerCase(Locale.US);
                     boolean system = (ai.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
                     if (system && !(p.contains("lool") || p.contains("game") || p.contains("tips")
                             || p.contains("theme") || p.startsWith("com.samsung.android.app."))) {
                         continue;
                     }
-                    try {
-                        am.killBackgroundProcesses(ai.packageName);
-                        closed++;
-                        seen.add(ai.packageName);
-                    } catch (Exception ignored) {
+                    if (cr.hasRoot) {
+                        runAsRoot("am force-stop " + ai.packageName);
+                    } else {
+                        try { am.killBackgroundProcesses(ai.packageName); } catch (Exception ignored) {}
                     }
+                    cr.closed++;
+                    seen.add(ai.packageName);
                 }
             } catch (Exception ignored) {
             }
             System.gc();
+            try { Thread.sleep(80); } catch (InterruptedException ignored) {}
         } catch (Exception ignored) {
         }
-        return closed;
+        long after = readAvailBytes();
+        cr.freedGb = Math.max(0, after - before) / (1024.0 * 1024.0 * 1024.0);
+        return cr;
+    }
+
+    private static long readAvailBytes() {
+        long avail = -1;
+        try (BufferedReader br = new BufferedReader(new FileReader("/proc/meminfo"))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.startsWith("MemAvailable:")) {
+                    String[] parts = line.split("\\s+");
+                    avail = Long.parseLong(parts[1]) * 1024L;
+                    break;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        if (avail < 0) {
+            try {
+                // fallback via ActivityManager not available statically without context — 0
+                return 0;
+            } catch (Exception e) {
+                return 0;
+            }
+        }
+        return avail;
     }
 
     static MemoryStats readStats(Context context) {
         MemoryStats s = new MemoryStats();
         try {
-            s.model = BuildModel();
+            s.model = android.os.Build.MODEL != null ? android.os.Build.MODEL : "";
+            long total = -1, available = -1;
+            try (BufferedReader br = new BufferedReader(new FileReader("/proc/meminfo"))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    if (line.startsWith("MemTotal:")) {
+                        total = Long.parseLong(line.split("\\s+")[1]) * 1024L;
+                    } else if (line.startsWith("MemAvailable:")) {
+                        available = Long.parseLong(line.split("\\s+")[1]) * 1024L;
+                    }
+                }
+            } catch (Exception ignored) {
+            }
             ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
             if (am != null) {
                 ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
                 am.getMemoryInfo(mi);
-                s.freeRamGb = mi.availMem / (1024.0 * 1024.0 * 1024.0);
-                s.totalRamGb = mi.totalMem / (1024.0 * 1024.0 * 1024.0);
+                if (total <= 0) total = mi.totalMem;
+                if (available <= 0) available = mi.availMem;
                 List<ActivityManager.RunningAppProcessInfo> procs = am.getRunningAppProcesses();
                 s.runningProcesses = procs != null ? procs.size() : 0;
             }
+            double gib = 1024.0 * 1024.0 * 1024.0;
+            s.totalRamGb = total / gib;
+            s.freeRamGb = available / gib;
+            s.usedRamGb = Math.max(0, total - available) / gib;
+            s.usedRamPct = total > 0 ? ((total - available) * 100.0) / total : 0;
+            s.freeRamPct = total > 0 ? (available * 100.0) / total : 0;
         } catch (Exception ignored) {
         }
         try {
@@ -223,18 +313,12 @@ public class RamCleanerWidget extends AppWidgetProvider {
         return s;
     }
 
-    private static String BuildModel() {
-        try {
-            String m = android.os.Build.MODEL;
-            return m != null ? m : "";
-        } catch (Exception e) {
-            return "";
-        }
-    }
-
     static class MemoryStats {
         double freeRamGb = 0;
+        double usedRamGb = 0;
         double totalRamGb = 0;
+        double usedRamPct = 0;
+        double freeRamPct = 0;
         double usedStorageGb = 0;
         double freeStorageGb = 0;
         double totalStorageGb = 0;

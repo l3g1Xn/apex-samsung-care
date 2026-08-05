@@ -1,6 +1,6 @@
 # Apex Care
 
-**v0.1.6 beta** — Device Care–style control for Android: health score, safe hang-RAM close with OS protect rules, on-device malware / PUA heuristics, package inventory, auto-optimize schedule, and a resizable **RAM** home-screen widget.
+**v0.1.7 beta** — Device Care–style Android control: accurate RAM, **root force-close** of running apps & processes, on-device malware/PUA Safe scan with auto-close, and a resizable RAM widget.
 
 > Not affiliated with Samsung. Sideloaded demo build — not on the Play Store.
 
@@ -8,76 +8,41 @@
 
 | Field | Value |
 |-------|--------|
-| Version | **0.1.6-beta** |
-| versionCode | **16** |
+| Version | **0.1.7-beta** |
+| versionCode | **17** |
 | Package | `com.apexcare.app` |
 | Min / target SDK | 26 / 34 |
-| APK | [ApexCare-v0.1.6-beta.apk](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v0.1.6-beta) (~4.3 MB) |
+| APK | [ApexCare-v0.1.7-beta.apk](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v0.1.7-beta) |
 
-**Install:** uninstall any older Apex Care → download the APK from [Releases](https://github.com/l3g1Xn/apex-samsung-care/releases) → open. Header badge should read **v0.1.6 beta**.
+**Install:** uninstall older Apex Care → download from [Releases](https://github.com/l3g1Xn/apex-samsung-care/releases) → open. Badge: **v0.1.7 beta**.
 
 ## Features
 
 | Area | What it does |
 |------|----------------|
-| **Care · Health** | Live health score from free RAM (+ Safe blend). No fixed phone-model label. |
-| **Optimize / Clean** | Closes **non-vital** background apps (user + stock bloat). Pulse animation while running. |
-| **Protect rules** | Never force-closes core OS, telephony, keyboard, Play services, or Apex itself. |
-| **Hanging RAM** | Surfaces hangers; **Close** only safe targets. |
-| **Apps** | Package inventory — All / User / System / Background / Disabled. Bottom tabs stay pinned while scrolling. |
-| **Safe** | On-device malware + PUA heuristics: install source, weaponized permissions, fake cleaners, debuggable, legacy target SDK. |
-| **Auto-optimize** | Off / Nightly / Twice daily (local preference). |
-| **Widget** | Free/total RAM · disk free % · process count · **Clean** with run animation. Horizontal/vertical resize. |
+| **RAM (accurate)** | Free/total from `/proc/meminfo` MemAvailable + ActivityManager; used % + process PSS |
+| **Optimize / Clean** | **Force-closes** non-vital running apps (`am force-stop` with root; killBackground otherwise) |
+| **Running Apps & Processes** | Live process list with PSS; Force close removes item from list |
+| **Protect rules** | Never force-closes core OS, telephony, keyboard, Play services, Apex |
+| **Safe** | On-device malware/PUA heuristics; **auto force-close open high/medium risks** (toggle) |
+| **Widget** | Free/total RAM, used GB, disk free, process count; Clean with animation |
+| **Nav** | Care · Running Apps & Processes · Safe · More (pinned bottom bar) |
 
-Store / deep-storage UI is **not** part of this product.
-
-## Repository layout
-
-```
-apex-samsung-care/
-├── README.md                 # This file
-├── .gitignore
-├── .github/workflows/        # Optional CI release helper
-└── android/                  # Native APK (primary product)
-    ├── README.md
-    ├── settings.gradle
-    ├── build.gradle
-    ├── gradle.properties
-    ├── gradle/wrapper/
-    ├── gradlew
-    └── app/
-        ├── build.gradle      # versionName 0.1.6-beta · versionCode 16
-        ├── proguard-rules.pro
-        └── src/main/
-            ├── AndroidManifest.xml
-            ├── java/com/apexcare/app/
-            │   ├── MainActivity.java      # WebView shell
-            │   ├── DeviceBridge.java      # ApexNative JS bridge
-            │   └── RamCleanerWidget.java  # Home-screen widget
-            ├── assets/www/index.html      # In-app UI
-            └── res/
-```
-
-## Build from source
-
-Requires **JDK 17+** and **Android SDK** (platform 34, build-tools 34).
+## Build
 
 ```bash
 cd android
 echo "sdk.dir=$ANDROID_HOME" > local.properties
-# Optional: keystore.properties for a signed release
 ./gradlew assembleRelease
 ```
 
-Output: `android/app/build/outputs/apk/release/app-release.apk`
+Root is optional but required for full Settings-style **FORCE_CLOSE**. Without root, background kill is used.
 
-Permissions used: `QUERY_ALL_PACKAGES`, `KILL_BACKGROUND_PROCESSES`, storage (safe temp/cache trim during optimize).
+## Safety
 
-## Safety notes
-
-- Heuristic findings are **local signals**, not cloud malware verdicts.
-- Stock Android does not allow third-party apps to OEM force-stop every process; protect rules still refuse vital packages.
-- Demo / portfolio signing — install only from this repository’s Releases if you trust the source.
+- Heuristics are local signals, not cloud verdicts.
+- Protect list blocks vital packages even with root.
+- Demo signing — install only if you trust this repository.
 
 ## License
 

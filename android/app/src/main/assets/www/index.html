@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
   <meta name="theme-color" content="#07080a" />
-  <title>Apex Care v0.1.6 beta</title>
+  <title>Apex Care v0.1.7 beta</title>
   <style>
     :root {
       --bg: #07080a; --surface: #101214; --elevated: #161a1e; --subtle: #1c2228;
@@ -17,7 +17,6 @@
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
     button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
     button:disabled { opacity: .5; cursor: not-allowed; }
-    /* Flex shell keeps bottom nav always visible (fixes Apps tab nav vanish) */
     .app { max-width: 28rem; margin: 0 auto; height: 100%; min-height: 100vh; min-height: 100dvh;
       display: flex; flex-direction: column; overflow: hidden; }
     header { flex-shrink: 0; z-index: 20; background: rgba(7,8,10,0.96);
@@ -42,6 +41,7 @@
       padding: 0 1rem; border-radius: .5rem; font-size: .875rem; font-weight: 500; width: 100%; }
     .btn-primary { background: var(--primary); color: var(--primary-fg); }
     .btn-secondary { background: var(--elevated); color: var(--fg); border: 1px solid var(--border); }
+    .btn-danger { background: #e07a7a22; color: var(--danger); border: 1px solid #e07a7a55; }
     .btn-sm { height: 2.25rem; font-size: 12px; padding: 0 .75rem; width: auto; }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
     .stat { text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; padding: .875rem; }
@@ -65,17 +65,20 @@
     .chip-med { background: #e8b86d22; color: var(--warn); }
     .chip-low { background: #3ecfbf22; color: var(--primary); }
     .chip-info { background: #6eb0e022; color: var(--info); }
+    .chip-run { background: #5ecf8a22; color: var(--ok); }
     .chips { display: flex; gap: .375rem; overflow-x: auto; padding-bottom: 2px; }
     .chips button { flex-shrink: 0; border-radius: 999px; border: 1px solid var(--border); background: var(--elevated);
       color: var(--muted); padding: .375rem .75rem; font-size: 12px; font-weight: 500; }
     .chips button.on { border-color: #3ecfbf66; background: #3ecfbf22; color: var(--primary); }
-    /* Bottom nav is flex sibling — never covered by Apps list */
     nav.shell-nav { flex-shrink: 0; z-index: 50; background: rgba(16,18,20,0.98);
-      border-top: 1px solid var(--border); padding: .35rem .25rem max(.55rem, env(safe-area-inset-bottom)); }
+      border-top: 1px solid var(--border); padding: .3rem .15rem max(.5rem, env(safe-area-inset-bottom)); }
     nav.shell-nav .inner { display: flex; width: 100%; }
-    nav.shell-nav button { flex: 1; min-width: 0; min-height: 3.1rem; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 2px; color: var(--faint); font-size: 10px; font-weight: 500; }
+    nav.shell-nav button { flex: 1; min-width: 0; min-height: 3.25rem; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1px; color: var(--faint); font-size: 9px; font-weight: 500;
+      line-height: 1.15; padding: .2rem .15rem; text-align: center; }
     nav.shell-nav button.on { color: var(--primary); }
+    nav.shell-nav button .nav-main { font-size: 10px; font-weight: 600; }
+    nav.shell-nav button .nav-sub { font-size: 8px; opacity: .85; max-width: 100%; }
     .search { position: relative; }
     .search input { width: 100%; height: 2.75rem; border-radius: .75rem; border: 1px solid var(--border);
       background: var(--elevated); color: var(--fg); padding: 0 .75rem 0 2.4rem; font-size: .875rem; outline: none; }
@@ -94,8 +97,7 @@
     .widget-meta { font-size: 10px; color: var(--faint); margin-top: 3px; }
     .widget-clean { flex-shrink: 0; min-width: 4.25rem; height: 2.35rem; border-radius: 999px; background: var(--primary);
       color: var(--primary-fg); font-size: 13px; font-weight: 600; padding: 0 .9rem; position: relative; overflow: hidden; }
-    .widget-clean.running { animation: cleanPulse 0.9s ease-in-out infinite; }
-    .btn-primary.running { animation: cleanPulse 0.9s ease-in-out infinite; }
+    .widget-clean.running, .btn-primary.running { animation: cleanPulse 0.9s ease-in-out infinite; }
     @keyframes cleanPulse {
       0%, 100% { box-shadow: 0 0 0 0 rgba(62,207,191,0.45); transform: scale(1); }
       50% { box-shadow: 0 0 0 8px rgba(62,207,191,0); transform: scale(0.98); }
@@ -114,18 +116,22 @@
     a.link { color: var(--primary); text-decoration: none; font-size: 12px; }
     .history-item { border-radius: .75rem; border: 1px solid var(--border); background: var(--elevated); padding: .5rem .75rem; }
     .clean-status { font-size: 11px; color: var(--primary); margin-top: .5rem; min-height: 1rem; }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .5rem 0; }
+    .switch { width: 42px; height: 24px; border-radius: 999px; background: var(--subtle); position: relative; border: 1px solid var(--border); flex-shrink: 0; }
+    .switch.on { background: #3ecfbf55; border-color: #3ecfbf88; }
+    .switch i { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--muted); transition: transform .15s; }
+    .switch.on i { transform: translateX(18px); background: var(--primary); }
   </style>
 </head>
 <body>
 <div class="app" id="app"></div>
 <script>
-const VERSION = "v0.1.6 beta";
-const VERSION_CODE = 16;
+const VERSION = "v0.1.7 beta";
+const VERSION_CODE = 17;
 const PACKAGE_ID = "com.apexcare.app";
 const GITHUB = "https://github.com/l3g1Xn/apex-samsung-care";
 const hasNative = typeof ApexNative !== "undefined";
 
-/* Only truly critical packages — non-vital system/OEM apps may be closed in optimize */
 const CORE_PROTECT = new Set([
   "android", "com.android.systemui", "com.android.settings", "com.android.phone",
   "com.android.server.telecom", "com.google.android.gms", "com.google.android.gsf",
@@ -134,7 +140,7 @@ const CORE_PROTECT = new Set([
   "com.android.providers.settings", "com.android.providers.telephony",
   "com.android.providers.contacts", "com.android.providers.media",
   "com.android.bluetooth", "com.android.nfc", "com.android.keychain", "com.android.shell",
-  "com.android.networkstack", "com.android.networkstack.tethering",
+  "com.android.networkstack", "com.android.networkstack.tethering", "com.android.vending",
   PACKAGE_ID
 ]);
 
@@ -145,7 +151,7 @@ const state = {
   scanError: null,
   scanning: false,
   scannedAt: null,
-  filter: "all",
+  filter: "running",
   q: "",
   mem: null,
   score: 72,
@@ -153,12 +159,16 @@ const state = {
   closing: false,
   optimizing: false,
   cleanPhase: "",
+  hasRoot: false,
   autoSchedule: (function () {
     try { return localStorage.getItem("apex.autoSchedule") || "off"; } catch (e) { return "off"; }
   })(),
+  safeAutoClose: (function () {
+    try { return localStorage.getItem("apex.safeAutoClose") !== "0"; } catch (e) { return true; }
+  })(),
   safe: {
     scanning: false, ok: false, error: null, score: null, scannedAt: null,
-    findings: [], stats: null, progress: 0, phase: "",
+    findings: [], stats: null, progress: 0, phase: "", autoClosed: 0,
   },
   findingFilter: "all",
 };
@@ -185,14 +195,13 @@ function escapeHtml(s) {
     .split("<").join("&" + "lt;")
     .split('"').join("&" + "quot;");
 }
-function isProtected(pkg, system) {
+function isProtected(pkg) {
   if (!pkg) return true;
   if (CORE_PROTECT.has(pkg)) return true;
-  if (pkg.startsWith("com.android.providers.")) return true;
+  if (pkg.indexOf("com.android.providers.") === 0) return true;
   var lower = pkg.toLowerCase();
   if (lower.indexOf("telecom") >= 0 || lower.indexOf("telephony") >= 0) return true;
-  if (lower.indexOf("inputmethod") >= 0) return true;
-  // Non-vital system / OEM bloat is allowed
+  if (lower.indexOf("inputmethod") >= 0 || lower.indexOf("honeyboard") >= 0) return true;
   return false;
 }
 function computeHealthScore() {
@@ -200,8 +209,8 @@ function computeHealthScore() {
   if (!m) return 72;
   var s = 100;
   if (m.totalRamGb > 0) {
-    var usedPct = ((m.totalRamGb - m.freeRamGb) / m.totalRamGb) * 100;
-    s -= Math.min(35, usedPct * 0.35);
+    var usedPct = m.usedRamPct != null ? m.usedRamPct : ((m.totalRamGb - m.freeRamGb) / m.totalRamGb) * 100;
+    s -= Math.min(40, usedPct * 0.4);
   }
   if (m.lowMemory) s -= 12;
   if (state.safe.score != null) s = s * 0.75 + state.safe.score * 0.25;
@@ -209,43 +218,57 @@ function computeHealthScore() {
 }
 function pushHistory(label, detail) {
   state.history.unshift({ id: Date.now() + Math.random(), at: Date.now(), label: label, detail: detail });
-  state.history = state.history.slice(0, 12);
+  state.history = state.history.slice(0, 14);
+}
+function applyMem(m) {
+  if (!m) return;
+  state.mem = m;
+  if (m.hasRoot != null) state.hasRoot = !!m.hasRoot;
+  state.score = computeHealthScore();
 }
 function loadMemory() {
   if (!hasNative) return;
   try {
-    state.mem = JSON.parse(ApexNative.getMemoryStats());
-    state.score = computeHealthScore();
+    applyMem(JSON.parse(ApexNative.getMemoryStats()));
   } catch (e) {}
+}
+function freeRamLine() {
+  var m = state.mem;
+  if (!m) return "— / — GB free";
+  return Number(m.freeRamGb).toFixed(1) + " / " + Number(m.totalRamGb).toFixed(1) + " GB free";
+}
+function usedRamLine() {
+  var m = state.mem;
+  if (!m) return "Used —";
+  var used = m.usedRamGb != null ? m.usedRamGb : Math.max(0, m.totalRamGb - m.freeRamGb);
+  var pct = m.usedRamPct != null ? m.usedRamPct : (m.totalRamGb > 0 ? (used / m.totalRamGb) * 100 : 0);
+  return "Used " + Number(used).toFixed(1) + " GB (" + Math.round(pct) + "%)";
 }
 function storageLine() {
   var m = state.mem;
-  if (!m) return "Storage —";
-  var pct = m.storageUsedPct != null ? Math.round(m.storageUsedPct) : null;
-  var used = m.storageUsedGb != null ? Number(m.storageUsedGb).toFixed(1) + " GB used" : null;
-  if (pct != null && used) return "Storage " + pct + "% · " + used;
-  if (pct != null) return "Storage " + pct + "%";
-  return "Storage —";
+  if (!m) return "Disk —";
+  var free = m.storageAvailGb != null ? Number(m.storageAvailGb).toFixed(1) + " GB free" : "—";
+  var pct = m.storageUsedPct != null ? Math.round(m.storageUsedPct) + "% used" : "";
+  return "Disk " + free + (pct ? " · " + pct : "");
 }
 function metaLine() {
   var m = state.mem;
-  if (!m) return "RAM — · procs —";
-  var total = m.totalRamGb != null ? Number(m.totalRamGb).toFixed(0) + " GB total" : "—";
+  if (!m) return "procs —";
   var procs = m.runningProcesses != null ? m.runningProcesses + " procs" : "—";
-  var freeSt = m.storageAvailGb != null ? Number(m.storageAvailGb).toFixed(1) + " GB free disk" : "";
-  return total + " · " + procs + (freeSt ? " · " + freeSt : "");
+  var freePct = m.freeRamPct != null ? Math.round(m.freeRamPct) + "% free" : "";
+  var root = state.hasRoot ? "root" : "no-root";
+  return procs + (freePct ? " · " + freePct : "") + " · " + root;
 }
 function dotsHtml() {
   return '<span class="spin-dot"></span><span class="spin-dot"></span><span class="spin-dot"></span>';
 }
 function ramCleanerHtml() {
-  var free = state.mem ? Number(state.mem.freeRamGb).toFixed(1) + " GB free" : "— GB free";
   var busy = state.closing || state.optimizing;
   return '<div class="widget-shell"><div class="widget-inner">' +
     '<div style="min-width:0;flex:1">' +
       '<div class="widget-title">Apex Care</div>' +
-      '<div class="widget-ram">' + free + '</div>' +
-      '<div class="widget-storage">' + storageLine() + '</div>' +
+      '<div class="widget-ram">' + freeRamLine() + '</div>' +
+      '<div class="widget-storage">' + usedRamLine() + ' · ' + storageLine() + '</div>' +
       '<div class="widget-meta">' + metaLine() + '</div>' +
     '</div>' +
     '<button class="widget-clean' + (busy ? ' running' : '') + '" ' + (busy ? 'disabled' : '') +
@@ -255,10 +278,11 @@ function ramCleanerHtml() {
   '</div>';
 }
 
-function scanApps() {
+/** Load running processes (Device Control list). */
+function scanRunning() {
   if (!hasNative) {
     state.scanOk = false;
-    state.scanError = "Open Apex Care from the installed APK to scan real packages.";
+    state.scanError = "Open Apex Care from the installed APK for live processes.";
     state.apps = [];
     render();
     return;
@@ -268,20 +292,26 @@ function scanApps() {
   render();
   setTimeout(function () {
     try {
-      var data = JSON.parse(ApexNative.scanInstalledApps());
+      var raw = typeof ApexNative.getRunningProcesses === "function"
+        ? ApexNative.getRunningProcesses()
+        : ApexNative.scanInstalledApps();
+      var data = JSON.parse(raw);
       if (data.ok) {
-        state.apps = (data.apps || []).map(function (a) {
-          var prot = isProtected(a.packageName, a.system);
+        var list = data.processes || data.apps || [];
+        state.apps = list.map(function (a) {
+          var prot = isProtected(a.packageName);
           return Object.assign({}, a, {
-            closeable: !prot,
-            protectReason: prot ? "core_os" : "none",
-            background: !!a.background,
-            hanging: !!a.hanging
+            closeable: !prot && a.closeable !== false,
+            protectReason: prot ? "core_os" : (a.protectReason || "none"),
+            running: a.running !== false
           });
         });
         state.scanOk = true;
         state.scannedAt = data.scannedAt || Date.now();
         state.scanError = null;
+        if (data.hasRoot != null) state.hasRoot = !!data.hasRoot;
+        if (data.mem) applyMem(data.mem);
+        else loadMemory();
       } else {
         state.apps = [];
         state.scanOk = false;
@@ -310,12 +340,13 @@ function runSafeScan() {
   state.safe.error = null;
   state.safe.progress = 12;
   state.safe.phase = "Enumerating packages…";
+  state.safe.autoClosed = 0;
   render();
   var steps = [
     [28, "Checking install sources…"],
     [48, "Scoring PUA / malware patterns…"],
-    [68, "Reviewing permissions…"],
-    [88, "Ranking findings…"]
+    [68, "Checking which risks are open…"],
+    [88, "Auto-closing open threats…"]
   ];
   var i = 0;
   function tick() {
@@ -324,7 +355,7 @@ function runSafeScan() {
       state.safe.phase = steps[i][1];
       i++;
       render();
-      setTimeout(tick, 180);
+      setTimeout(tick, 160);
       return;
     }
     try {
@@ -342,6 +373,37 @@ function runSafeScan() {
           malwareSignals: data.malwareSignals || 0, puaSignals: data.puaSignals || 0
         };
         state.safe.error = null;
+        if (data.hasRoot != null) state.hasRoot = !!data.hasRoot;
+
+        // Auto-close open risk apps if toggle on
+        if (state.safeAutoClose) {
+          var pkgs = data.openRiskPackages || [];
+          if (pkgs.length === 0) {
+            // derive from findings
+            var seen = {};
+            (data.findings || []).forEach(function (f) {
+              if (f.running && f.packageName && (f.severity === "high" || f.severity === "medium")
+                  && !isProtected(f.packageName) && !seen[f.packageName]) {
+                seen[f.packageName] = true;
+                pkgs.push(f.packageName);
+              }
+            });
+          }
+          if (pkgs.length > 0 && typeof ApexNative.forceCloseIfOpen === "function") {
+            try {
+              var cr = JSON.parse(ApexNative.forceCloseIfOpen(JSON.stringify(pkgs)));
+              state.safe.autoClosed = cr.closed || 0;
+              if (cr.mem) applyMem(cr.mem);
+              if (state.safe.autoClosed > 0) {
+                pushHistory("Safe auto-close", "Force-closed " + state.safe.autoClosed + " open risk app(s)");
+                // refresh running list if on that tab later
+                state.apps = state.apps.filter(function (a) {
+                  return pkgs.indexOf(a.packageName) < 0 || isProtected(a.packageName);
+                });
+              }
+            } catch (e2) {}
+          }
+        }
       } else {
         state.safe.ok = false;
         state.safe.error = data.error || "Heuristic scan failed";
@@ -356,23 +418,44 @@ function runSafeScan() {
     state.safe.progress = 100;
     state.safe.phase = "Done";
     state.score = computeHealthScore();
+    loadMemory();
     render();
   }
-  setTimeout(tick, 160);
+  setTimeout(tick, 140);
+}
+
+function forceClose(pkg, removeFromList) {
+  if (!pkg || isProtected(pkg)) return Promise.resolve(null);
+  return new Promise(function (resolve) {
+    try {
+      var raw = typeof ApexNative.forceCloseApp === "function"
+        ? ApexNative.forceCloseApp(pkg)
+        : ApexNative.closeBackgroundApp(pkg);
+      var r = JSON.parse(raw);
+      if (r.mem) applyMem(r.mem);
+      else loadMemory();
+      if (r.ok && removeFromList) {
+        state.apps = state.apps.filter(function (a) { return a.packageName !== pkg; });
+      }
+      resolve(r);
+    } catch (e) {
+      resolve({ ok: false, reason: String(e.message || e) });
+    }
+  });
 }
 
 function runOptimize(label) {
   if (state.closing || state.optimizing) return;
   state.optimizing = true;
   state.closing = true;
-  state.cleanPhase = "Scanning background apps…";
+  state.cleanPhase = "Reading accurate RAM…";
   render();
 
   var phases = [
-    [180, "Requesting filesystem access…"],
-    [360, "Closing non-vital background apps…"],
-    [560, "Releasing hanging RAM…"],
-    [760, "Trimming cache junk…"]
+    [160, "Checking root force-stop…"],
+    [340, "Force-closing background apps…"],
+    [560, "Killing leftover processes…"],
+    [740, "Refreshing memory stats…"]
   ];
   var pi = 0;
   function nextPhase() {
@@ -389,26 +472,37 @@ function runOptimize(label) {
 
   function finish() {
     var closed = 0;
-    var freedHint = 0;
+    var freedMb = 0;
+    var method = "";
     try {
       if (hasNative && typeof ApexNative.optimizeDevice === "function") {
         var res = JSON.parse(ApexNative.optimizeDevice());
         if (res) {
           closed = res.closed || 0;
-          freedHint = res.freedMb || 0;
-          if (res.mem) state.mem = res.mem;
+          freedMb = res.freedMb || 0;
+          method = res.method || "";
+          if (res.hasRoot != null) state.hasRoot = !!res.hasRoot;
+          if (res.mem) applyMem(res.mem);
+          // Remove closed packages from running list
+          var closedSet = {};
+          (res.closedPackages || []).forEach(function (p) { closedSet[p] = true; });
+          if (Object.keys(closedSet).length) {
+            state.apps = state.apps.filter(function (a) { return !closedSet[a.packageName]; });
+          } else {
+            // re-scan running
+            try {
+              var rp = JSON.parse(ApexNative.getRunningProcesses());
+              if (rp.ok) {
+                state.apps = (rp.processes || []).map(function (a) {
+                  var prot = isProtected(a.packageName);
+                  return Object.assign({}, a, { closeable: !prot, protectReason: prot ? "core_os" : "none" });
+                });
+                state.scanOk = true;
+                if (rp.mem) applyMem(rp.mem);
+              }
+            } catch (e3) {}
+          }
         }
-      } else if (hasNative && typeof ApexNative.closeBackgroundApp === "function") {
-        var targets = state.apps.filter(function (a) {
-          return a.enabled && !isProtected(a.packageName, a.system);
-        });
-        targets.forEach(function (a) {
-          try {
-            var r = JSON.parse(ApexNative.closeBackgroundApp(a.packageName));
-            if (r && r.ok) closed++;
-          } catch (e) {}
-        });
-        loadMemory();
       } else {
         loadMemory();
       }
@@ -418,7 +512,7 @@ function runOptimize(label) {
     state.optimizing = false;
     state.closing = false;
     state.cleanPhase = closed > 0
-      ? "Done · closed " + closed + " apps" + (freedHint ? " · ~" + Math.round(freedHint) + " MB" : "")
+      ? "Done · force-closed " + closed + (freedMb ? " · +" + Math.round(freedMb) + " MB free" : "") + (method ? " · " + method : "")
       : "Done · memory refreshed";
     state.score = computeHealthScore();
     pushHistory(label || "Optimize complete", state.cleanPhase);
@@ -426,21 +520,8 @@ function runOptimize(label) {
     setTimeout(function () {
       state.cleanPhase = "";
       render();
-    }, 2200);
-    // refresh inventory quietly
-    if (state.scanOk) {
-      try {
-        var data = JSON.parse(ApexNative.scanInstalledApps());
-        if (data.ok) {
-          state.apps = (data.apps || []).map(function (a) {
-            var prot = isProtected(a.packageName, a.system);
-            return Object.assign({}, a, { closeable: !prot, protectReason: prot ? "core_os" : "none" });
-          });
-        }
-      } catch (e2) {}
-    }
+    }, 2400);
   }
-
   nextPhase();
 }
 
@@ -454,13 +535,13 @@ function ring(score, label, sub) {
 }
 
 function home() {
-  var userCount = state.apps.filter(function (a) { return !a.system; }).length;
-  var totalCount = state.apps.length;
   var safeScore = state.safe.score;
   var healthSub = state.score >= 80 ? "Running smoothly" : state.score >= 55 ? "Needs attention" : "Heavy load";
   var malware = state.safe.stats ? (state.safe.stats.malwareSignals || 0) : 0;
   var pua = state.safe.stats ? (state.safe.stats.puaSignals || 0) : 0;
   var busy = state.optimizing || state.closing;
+  var m = state.mem;
+  var usedPct = m && m.usedRamPct != null ? Math.round(m.usedRamPct) : 0;
 
   return '' +
     '<div class="card center">' +
@@ -472,29 +553,32 @@ function home() {
         '<button class="btn btn-secondary" onclick="window.AC.refreshAll()" ' + (busy ? 'disabled' : '') + '>Refresh</button>' +
       '</div>' +
       (state.cleanPhase ? '<div class="clean-status">' + escapeHtml(state.cleanPhase) + '</div>' : '') +
+      '<p class="faint mt" style="margin-bottom:0">Force-close uses root <span class="mono">am force-stop</span> when available (' +
+        (state.hasRoot ? 'root ready' : 'no root · background kill') + ').</p>' +
     '</div>' +
     '<div class="card" style="padding:.875rem">' +
       '<div class="row" style="margin-bottom:.55rem">' +
         '<h2 style="margin:0">RAM cleaner</h2>' +
-        '<span class="faint" style="text-transform:uppercase;letter-spacing:.06em;font-size:10px;font-weight:600">Same as widget</span>' +
+        '<span class="faint" style="text-transform:uppercase;letter-spacing:.06em;font-size:10px;font-weight:600">Live stats</span>' +
       '</div>' +
       ramCleanerHtml() +
-      '<p class="faint mt" style="margin-bottom:0">Clean closes non-vital background apps (user + stock bloat). Core OS / phone / keyboard stay protected.</p>' +
+      '<div class="bar mt"><i style="width:' + (100 - usedPct) + '%"></i></div>' +
+      '<p class="faint mt" style="margin-bottom:0">Free/total from /proc/meminfo + ActivityManager. Clean force-closes non-vital apps.</p>' +
     '</div>' +
     '<button class="stat" onclick="window.AC.tab(\'safe\')" style="text-align:left;width:100%">' +
       '<div class="t">Safe score</div>' +
       '<div class="v">' + (safeScore != null ? safeScore : "—") + '</div>' +
-      '<div class="s">' + (state.safe.ok ? (malware + " malware · " + pua + " PUA") : "Tap to scan") + '</div>' +
+      '<div class="s">' + (state.safe.ok ? (malware + " malware · " + pua + " PUA" + (state.safe.autoClosed ? " · auto-closed " + state.safe.autoClosed : "")) : "Tap to scan") + '</div>' +
       '<div class="bar"><i style="width:' + (safeScore != null ? safeScore : 0) + '%"></i></div>' +
     '</button>' +
     '<div class="card">' +
-      '<div class="row"><h2 style="margin:0">Installed apps</h2>' +
+      '<div class="row"><h2 style="margin:0">Running processes</h2>' +
         '<button class="btn btn-sm btn-secondary" ' + (state.scanning ? "disabled" : "") + ' onclick="window.AC.scan()">' +
-          (state.scanning ? "Scanning…" : "Scan device") + '</button></div>' +
+          (state.scanning ? "Scanning…" : "Refresh list") + '</button></div>' +
       '<p class="muted mt" style="margin-bottom:0">' +
         (state.scanOk
-          ? 'Found <strong style="color:var(--fg)">' + totalCount + '</strong> packages · <strong style="color:var(--primary)">' + userCount + '</strong> user apps.'
-          : (state.scanError || "Tap Scan device to list packages on this phone.")) +
+          ? '<strong style="color:var(--fg)">' + state.apps.length + '</strong> running packages · tap Running Apps tab for force-close.'
+          : (state.scanError || "Refresh to list live processes.")) +
       '</p></div>' +
     (state.history.length ? (
       '<div class="card"><h2>Recent activity</h2><div class="list">' +
@@ -518,11 +602,17 @@ function safePanel() {
     '<div class="card center">' +
       (s.score != null ? ring(s.score, "Safe", sub)
         : '<div class="ring-wrap"><div class="ring" style="display:flex;align-items:center;justify-content:center"><div class="mid"><div class="lbl">Safe</div><div class="sub">Local heuristics</div></div></div></div>') +
-      '<p class="muted" style="margin:.5rem 0 0">On-device malware / PUA heuristics. No cloud DB.</p>' +
+      '<p class="muted" style="margin:.5rem 0 0">On-device malware / PUA scan. Open threats can be force-closed automatically.</p>' +
+      '<div class="toggle-row mt">' +
+        '<div style="text-align:left"><div style="font-size:13px;font-weight:500">Auto-close open risks</div>' +
+        '<div class="faint">Force-close high/medium findings that are running</div></div>' +
+        '<button type="button" class="switch' + (state.safeAutoClose ? ' on' : '') + '" onclick="window.AC.toggleSafeAuto()" aria-label="Auto-close"><i></i></button>' +
+      '</div>' +
       '<button class="btn btn-primary mt" ' + (s.scanning ? "disabled" : "") + ' onclick="window.AC.safeScan()">' +
         (s.scanning ? s.phase : (s.ok ? "Scan again" : "Run heuristic scan")) +
       '</button>' +
       (s.scanning ? '<div class="progress mt"><i style="width:' + s.progress + '%"></i></div><p class="faint" style="margin:.4rem 0 0">' + s.progress + '%</p>' : '') +
+      (s.autoClosed > 0 ? '<p class="clean-status">Auto force-closed ' + s.autoClosed + ' open risk app(s)</p>' : '') +
       (s.error ? '<p class="muted mt" style="color:var(--danger)">' + escapeHtml(s.error) + '</p>' : '') +
       (s.scannedAt && !s.scanning ? '<p class="faint mt">Last scan ' + new Date(s.scannedAt).toLocaleString() + '</p>' : '') +
     '</div>' +
@@ -546,12 +636,16 @@ function safePanel() {
             '<strong style="font-size:.875rem">' + escapeHtml(f.title) + '</strong>' +
             '<span class="chip ' + sevChip(f.severity) + '">' + escapeHtml(f.severity) + '</span>' +
             (f.kind ? '<span class="chip chip-info">' + escapeHtml(f.kind) + '</span>' : '') +
+            (f.running ? '<span class="chip chip-run">Open</span>' : '') +
             '</div><p class="muted" style="margin:0">' + escapeHtml(f.detail) + '</p>' +
             (f.packageName ? '<div class="mono mt">' + escapeHtml(f.packageName) + '</div>' : '') +
+            (f.running && f.packageName && !isProtected(f.packageName)
+              ? '<button class="btn btn-sm btn-danger mt" style="margin-top:.5rem" onclick="window.AC.closeOne(\'' +
+                escapeHtml(f.packageName).replace(/'/g, "") + '\')">Force close</button>' : '') +
           '</div>';
         }).join("")) +
       '</div>'
-    ) : (s.scanning ? "" : '<div class="card muted">Run a scan to populate findings.</div>'));
+    ) : (s.scanning ? "" : '<div class="card muted">Run a scan to populate findings. Open high/medium risks can be auto force-closed.</div>'));
 }
 
 function appsPanel() {
@@ -560,50 +654,52 @@ function appsPanel() {
   var q = state.q.trim().toLowerCase();
   if (f === "user") list = list.filter(function (a) { return !a.system; });
   if (f === "system") list = list.filter(function (a) { return a.system; });
-  if (f === "disabled") list = list.filter(function (a) { return !a.enabled; });
-  if (f === "background") list = list.filter(function (a) {
-    return a.enabled && !isProtected(a.packageName, a.system);
-  });
+  if (f === "closeable") list = list.filter(function (a) { return !isProtected(a.packageName); });
+  if (f === "cached") list = list.filter(function (a) { return a.importance === "cached" || a.hanging; });
   if (q) list = list.filter(function (a) {
-    return (a.name || "").toLowerCase().indexOf(q) >= 0 || (a.packageName || "").toLowerCase().indexOf(q) >= 0;
+    return (a.name || "").toLowerCase().indexOf(q) >= 0 || (a.packageName || "").toLowerCase().indexOf(q) >= 0
+      || String(a.pid || "").indexOf(q) >= 0;
   });
 
   return '' +
     '<div class="card">' +
-      '<h2>App inventory</h2>' +
-      '<p class="muted">Live package list. Bottom tabs stay pinned — scroll this list only.</p>' +
+      '<h2>Running Apps & Processes</h2>' +
+      '<p class="muted">Live processes with PSS RAM. <strong style="color:var(--fg)">Force close</strong> uses root <span class="mono">am force-stop</span> when available. Closed items leave this list.</p>' +
       '<div class="search mt"><span>⌕</span>' +
-        '<input type="search" placeholder="Search name or package" value="' + escapeHtml(state.q || "") +
+        '<input type="search" placeholder="Search name, package, or PID" value="' + escapeHtml(state.q || "") +
         '" oninput="window.AC.setQ(this.value)" /></div>' +
       '<div class="chips mt">' +
-        [["all","All"],["user","User"],["system","System"],["background","Background"],["disabled","Disabled"]].map(function (pair) {
+        [["running","All running"],["closeable","Closeable"],["user","User"],["system","System"],["cached","Cached"]].map(function (pair) {
           return '<button class="' + (f === pair[0] ? "on" : "") + '" onclick="window.AC.setFilter(\'' + pair[0] + '\')">' + pair[1] + '</button>';
         }).join("") +
       '</div>' +
-      '<div class="row mt"><span class="faint">' + list.length + ' shown · ' + state.apps.length + ' scanned</span>' +
+      '<div class="row mt"><span class="faint">' + list.length + ' shown · ' + state.apps.length + ' running · ' +
+        (state.hasRoot ? 'root force-stop' : 'bg kill') + '</span>' +
         '<button class="btn btn-sm btn-secondary" ' + (state.scanning ? "disabled" : "") + ' onclick="window.AC.scan()">' +
           (state.scanning ? "Scanning…" : "Rescan") + '</button></div>' +
     '</div><div class="list">' +
-    (!state.scanOk && !state.scanning ? '<div class="card center muted">' + (state.scanError || "Scan the device to load apps.") + '</div>' : "") +
-    (state.scanning ? '<div class="card center muted">Scanning installed packages…</div>' : "") +
+    (!state.scanOk && !state.scanning ? '<div class="card center muted">' + (state.scanError || "Scan to load running processes.") + '</div>' : "") +
+    (state.scanning ? '<div class="card center muted">Reading running processes…</div>' : "") +
+    (state.scanOk && list.length === 0 ? '<div class="card center muted">No processes match this filter.</div>' : "") +
     list.map(function (a) {
-      var prot = isProtected(a.packageName, a.system);
+      var prot = isProtected(a.packageName);
+      var ram = a.ramMb != null ? a.ramMb + " MB" : "—";
       return '<div class="item"><div style="display:flex;gap:.75rem">' +
         '<div class="avatar">' + (a.name || "?").slice(0, 2).toUpperCase() + '</div>' +
         '<div style="min-width:0;flex:1">' +
           '<div style="display:flex;flex-wrap:wrap;gap:.35rem;align-items:center">' +
             '<strong style="font-size:.875rem">' + escapeHtml(a.name || a.packageName) + '</strong>' +
             (a.system ? '<span class="chip chip-sys">System</span>' : '<span class="chip chip-user">User</span>') +
-            (!a.enabled ? '<span class="chip chip-off">Disabled</span>' : '') +
+            '<span class="chip chip-run">' + escapeHtml(a.importance || "running") + '</span>' +
             (prot ? '<span class="chip chip-info">Protected</span>' : '') +
           '</div>' +
-          '<div class="mono">' + escapeHtml(a.packageName || "") + '</div>' +
-          '<div class="faint" style="margin-top:.25rem">' +
-            (a.versionName ? "v" + escapeHtml(a.versionName) : "") +
-            (a.lastUpdateTime ? " · updated " + new Date(a.lastUpdateTime).toLocaleDateString() : "") +
+          '<div class="mono">' + escapeHtml(a.packageName || "") +
+            (a.pid ? ' · pid ' + a.pid : '') + '</div>' +
+          '<div class="faint" style="margin-top:.25rem">PSS ~' + ram +
+            (a.processName && a.processName !== a.packageName ? ' · ' + escapeHtml(a.processName) : '') +
           '</div>' +
-          (!prot && a.enabled ? '<button class="btn btn-sm btn-secondary mt" style="margin-top:.5rem" onclick="window.AC.closeOne(\'' +
-            escapeHtml(a.packageName).replace(/'/g, "") + '\')">Close background</button>' : '') +
+          (!prot ? '<button class="btn btn-sm btn-danger mt" style="margin-top:.5rem" onclick="window.AC.closeOne(\'' +
+            escapeHtml(a.packageName).replace(/'/g, "") + '\')">Force close</button>' : '') +
         '</div></div></div>';
     }).join("") +
     '</div>';
@@ -613,7 +709,7 @@ function morePanel() {
   var sched = state.autoSchedule;
   return '' +
     '<div class="card"><h2>Auto-optimize</h2>' +
-      '<p class="muted">Preference for scheduled hang-RAM cleanup.</p>' +
+      '<p class="muted">Preference for scheduled force-close cleanup.</p>' +
       '<div class="sched mt">' +
         [["off","Off","Manual only"],["nightly","Nightly","2:00 AM local"],["twice","Twice daily","9 AM + 9 PM"]].map(function (x) {
           return '<button class="' + (sched === x[0] ? "on" : "") + '" onclick="window.AC.setSchedule(\'' + x[0] + '\')">' +
@@ -621,19 +717,25 @@ function morePanel() {
         }).join("") +
       '</div></div>' +
     '<div class="card"><h2>RAM widget</h2>' +
-      '<p class="muted">Long-press home → Widgets → <strong style="color:var(--fg)">Apex Care · RAM</strong>. Shows free/total RAM, storage, process count, Clean with run animation.</p>' +
+      '<p class="muted">Long-press home → Widgets → <strong style="color:var(--fg)">Apex Care · RAM</strong>. Same accurate free/total RAM + force Clean.</p>' +
       '<div class="mt">' + ramCleanerHtml() + '</div></div>' +
     '<div class="card"><h2>Source & releases</h2>' +
       '<p class="muted">Package <span class="mono">' + PACKAGE_ID + '</span> · ' + VERSION + ' · versionCode ' + VERSION_CODE + '</p>' +
+      '<p class="faint">Force-close: ' + (state.hasRoot ? 'root am force-stop' : 'killBackgroundProcesses (grant root for full FORCE_CLOSE)') + '</p>' +
       '<a class="btn btn-secondary mt" href="' + GITHUB + '" target="_blank" rel="noreferrer" style="text-decoration:none">GitHub repository</a>' +
       '<p class="center mt"><a class="link" href="' + GITHUB + '/releases" target="_blank" rel="noreferrer">Releases on GitHub</a></p></div>' +
     '<div class="card"><h2>About</h2>' +
-      '<p class="muted">' + VERSION + '. Optimize closes non-vital background apps including stock bloat; core OS / telephony / keyboard protected. File access used during clean for safe junk trim.</p>' +
+      '<p class="muted">' + VERSION + '. RAM from /proc/meminfo MemAvailable. Optimize force-closes non-vital running apps. Core OS / telephony / keyboard protected.</p>' +
       '<p class="faint mt">Native bridge: ' + (hasNative ? "connected" : "unavailable") + '</p></div>';
 }
 
 function render() {
-  var tabs = [["home","Care"],["apps","Apps"],["safe","Safe"],["more","More"]];
+  var tabs = [
+    { id: "home", main: "Care", sub: "" },
+    { id: "apps", main: "Running Apps", sub: "& Processes" },
+    { id: "safe", main: "Safe", sub: "" },
+    { id: "more", main: "More", sub: "" }
+  ];
   var body = state.tab === "home" ? home()
     : state.tab === "apps" ? appsPanel()
     : state.tab === "safe" ? safePanel()
@@ -649,38 +751,53 @@ function render() {
     '<div class="shell-main" id="shellMain"><main>' + body + '</main></div>' +
     '<nav class="shell-nav" aria-label="Primary"><div class="inner">' +
       tabs.map(function (t) {
-        return '<button type="button" class="' + (state.tab === t[0] ? "on" : "") +
-          '" onclick="window.AC.tab(\'' + t[0] + '\')"><span>' + t[1] + '</span></button>';
+        return '<button type="button" class="' + (state.tab === t.id ? "on" : "") +
+          '" onclick="window.AC.tab(\'' + t.id + '\')">' +
+          '<span class="nav-main">' + t.main + '</span>' +
+          (t.sub ? '<span class="nav-sub">' + t.sub + '</span>' : '') +
+          '</button>';
       }).join("") +
     '</div></nav>';
 
   var restored = document.getElementById("shellMain");
-  if (restored && state.tab === "apps") restored.scrollTop = scrollTop;
+  if (restored && (state.tab === "apps" || state.tab === "safe")) restored.scrollTop = scrollTop;
 }
 
 window.AC = {
   tab: function (t) {
     state.tab = t;
-    if (t === "apps" && !state.scanOk && !state.scanning) scanApps();
+    if (t === "apps" && !state.scanOk && !state.scanning) scanRunning();
     if (t === "safe" && !state.safe.ok && !state.safe.scanning) runSafeScan();
     render();
   },
-  scan: function () { scanApps(); },
+  scan: function () { scanRunning(); },
   safeScan: function () { runSafeScan(); },
   clean: function () { runOptimize("RAM cleaned"); },
   optimize: function () { runOptimize("Optimize complete"); },
   closeOne: function (pkg) {
-    if (!hasNative) return;
-    if (isProtected(pkg)) return;
-    try {
-      var r = JSON.parse(ApexNative.closeBackgroundApp(pkg));
-      pushHistory(r.ok ? "Closed background app" : "Close blocked", r.ok ? pkg : (r.reason || pkg));
-      loadMemory();
+    if (state.closing) return;
+    state.closing = true;
+    state.cleanPhase = "Force-closing " + pkg + "…";
+    render();
+    forceClose(pkg, true).then(function (r) {
+      state.closing = false;
+      state.cleanPhase = "";
+      if (r && r.ok) {
+        pushHistory("Force closed", pkg + (r.method ? " · " + r.method : "") +
+          (r.freedMb ? " · +" + Math.round(r.freedMb) + " MB" : ""));
+      } else {
+        pushHistory("Close blocked", (r && r.reason) || pkg);
+      }
       render();
-    } catch (e) {}
+    });
   },
   setFilter: function (f) { state.filter = f; render(); },
   setFindingFilter: function (f) { state.findingFilter = f; render(); },
+  toggleSafeAuto: function () {
+    state.safeAutoClose = !state.safeAutoClose;
+    try { localStorage.setItem("apex.safeAutoClose", state.safeAutoClose ? "1" : "0"); } catch (e) {}
+    render();
+  },
   setSchedule: function (s) {
     state.autoSchedule = s;
     try { localStorage.setItem("apex.autoSchedule", s); } catch (e) {}
@@ -695,15 +812,14 @@ window.AC = {
   },
   refreshAll: function () {
     loadMemory();
-    if (state.scanOk) scanApps();
+    scanRunning();
     if (state.safe.ok) runSafeScan();
-    else render();
   }
 };
 
 try {
   loadMemory();
-  scanApps();
+  scanRunning();
   if (!document.getElementById("app").innerHTML) render();
 } catch (err) {
   var el = document.getElementById("app");
