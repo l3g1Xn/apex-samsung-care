@@ -85,25 +85,30 @@ jobs:
           files: dist/ApexCare-v1.0.0.apk
           fail_on_unmatched_files: true
           body: |
-            ## Apex Care v1.0.0 — Full Send Edition (signed universal)
+            ## Apex Care v1.0.0 — Full Send Edition
 
             Package `com.apexcare.app` · versionCode **18** · versionName **1.0.0**
 
-            ### Install fix
-            Previous CI artifact was **unsigned** — Samsung/Android reports **"App not installed"**.
-            This build is **signed (v1 + v2 + v3)** as a **universal APK** (all ABIs, no splits).
+            **Signed universal APK** (v1 + v2 + v3). Replaces prior unsigned / pre-Magisk builds.
+
+            ### Magisk Grant Root
+            In-app **Grant Temporary Root** runs Magisk `su` in a background worker:
+            1. Resolves Magisk/KSU `su`
+            2. Opens interactive SuperUser shell (Magisk grant prompt)
+            3. Keeps live root session for Optimize / Clean / force-stop
 
             ### Install
-            1. **Uninstall any older Apex Care** first (required if signature changed)
-            2. Download **ApexCare-v1.0.0.apk**
-            3. Settings → allow install from this source → install
-            4. Badge should read **v1.0.0**
+            1. **Uninstall any older Apex Care** first
+            2. Download **ApexCare-v1.0.0.apk** below
+            3. Allow install from this source → install
+            4. Open → **Grant Temporary Root** → tap **Grant** in Magisk
+            5. Badge should read **v1.0.0**
 
             ### Compatibility
-            - minSdk **24** / targetSdk **34** (Samsung One UI A/S/Z/F/M series)
-            - Universal APK · hardware features optional · Multi-Window / aspect ratio meta
+            - minSdk **24** / targetSdk **34** (Samsung One UI)
+            - Universal APK · no ABI splits
             - Root optional (Magisk / KernelSU)
 
-            Demo signing cert is for sideload only — not Play Store.
+            Demo signing for sideload only — not Play Store.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
