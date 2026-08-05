@@ -1,34 +1,54 @@
-# Apex Care
+# APEX CARE v1.0.0
 
-**v0.1.7 beta** — Device Care–style Android control: accurate RAM, **root force-close** of running apps & processes, on-device malware/PUA Safe scan with auto-close, and a resizable RAM widget.
+### Make RAM Great Again · Full Send Edition
 
-> Not affiliated with Samsung. Sideloaded demo build — not on the Play Store.
+This is not your soft, soy, "please-optimize-my-feelings" device-care toy.  
+This is a **steel-toed boot** for background bloat, a **Hot Wheels flame job** for free RAM percentage, and a middle finger to every process that thinks your S25 Ultra is a goddamn public park.
 
-## Current release
+Sideloaded. Unsigned by the Play Store priesthood. Root-optional but root-hungry.  
+If that scares you, close the tab and go reinstall TikTok.
 
-| Field | Value |
-|-------|--------|
-| Version | **0.1.7-beta** |
-| versionCode | **17** |
-| Package | `com.apexcare.app` |
-| Min / target SDK | 26 / 34 |
-| APK | [ApexCare-v0.1.7-beta.apk](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v0.1.7-beta) |
+---
 
-**Install:** uninstall older Apex Care → download from [Releases](https://github.com/l3g1Xn/apex-samsung-care/releases) → open. Badge: **v0.1.7 beta**.
+## What this beast does
 
-## Features
+| Area | What it actually does |
+|------|------------------------|
+| **RAM (pixel-level)** | Free % from `/proc/meminfo` **MemAvailable** multi-sample median — not marketing fluff |
+| **Optimize / Clean** | Force-closes non-vital running apps. With root: real `am force-stop` + PID kill. Without: background kill |
+| **Running Apps & Processes** | Live list with PSS. Force close removes them from the list like they never existed |
+| **Grant Temporary Root** | In-app + widget path to probe Magisk / KernelSU / `su`. **Android cannot auto-grant root on APK install** — anyone who tells you otherwise is selling snake oil |
+| **Safe** | Local malware / PUA heuristics; optional auto force-close of open high/medium risks |
+| **Widget** | Free % primary, ROOT badge when elevated, deeper Clean when su is live |
+| **Nav** | Properly scaled bottom bar: Care · Running · Safe · More |
+| **Splash** | MAGA Hot Wheels style logo overlay that vanishes after open. Flames optional. Tears optional. |
 
-| Area | What it does |
-|------|----------------|
-| **RAM (accurate)** | Free/total from `/proc/meminfo` MemAvailable + ActivityManager; used % + process PSS |
-| **Optimize / Clean** | **Force-closes** non-vital running apps (`am force-stop` with root; killBackground otherwise) |
-| **Running Apps & Processes** | Live process list with PSS; Force close removes item from list |
-| **Protect rules** | Never force-closes core OS, telephony, keyboard, Play services, Apex |
-| **Safe** | On-device malware/PUA heuristics; **auto force-close open high/medium risks** (toggle) |
-| **Widget** | Free/total RAM, used GB, disk free, process count; Clean with animation |
-| **Nav** | Care · Running Apps & Processes · Safe · More (pinned bottom bar) |
+---
 
-## Build
+## Install (for people with working hands)
+
+1. Uninstall any older Apex Care build.
+2. Download **ApexCare-v1.0.0.apk** from [Releases](https://github.com/l3g1Xn/apex-samsung-care/releases).
+3. Allow install from that source. Hit install. Don't cry about "unknown sources."
+4. Open the app. Watch the flame logo. Tap **Grant Temporary Root** if Magisk/su is already on the device.
+5. Badge should read **v1.0.0**.
+
+**versionCode 18 · package `com.apexcare.app` · minSdk 26 / targetSdk 34**
+
+---
+
+## Root reality check (read this before you invent a fantasy)
+
+- **No APK can "trigger root on install" through normal Android permissions.**  
+  That is not how the OS works. `REQUEST_INSTALL_PACKAGES`, `WRITE_SETTINGS`, storage, camera — none of those are `uid=0`.
+- Temporary elevated clearing works **only** if Magisk, KernelSU, or another su binary is already present and the user grants this app.
+- Without root you still get accurate free-RAM %, background kill, Safe scan, and the widget. With root you get the full FORCE_CLOSE hammer.
+
+If that paragraph makes someone "whine harder," good. Physics is not a participation trophy.
+
+---
+
+## Build it yourself (optional)
 
 ```bash
 cd android
@@ -36,14 +56,25 @@ echo "sdk.dir=$ANDROID_HOME" > local.properties
 ./gradlew assembleRelease
 ```
 
-Root is optional but required for full Settings-style **FORCE_CLOSE**. Without root, background kill is used.
+Root is optional. Whining is optional. Accuracy is not.
+
+---
 
 ## Safety
 
-- Heuristics are local signals, not cloud verdicts.
-- Protect list blocks vital packages even with root.
-- Demo signing — install only if you trust this repository.
+- Protect list: core OS, telephony, keyboard, Play services, Apex itself — never force-closed.
+- Heuristics are **on-device**. No cloud snitch network.
+- Demo signing. Install only if you trust this repo and your own judgment.
 
-## License
+---
 
-Demo / portfolio project. Not affiliated with Samsung or Google.
+## License / affiliation
+
+Demo / portfolio project. **Not affiliated with Samsung, Google, Hot Wheels, or the Republican Party.**  
+Flames, chrome, and attitude are decorative. The RAM math is not.
+
+---
+
+**Apex Care v1.0.0 — Full Send.**  
+If your free-RAM bubble goes up and your blood pressure goes down, you're welcome.  
+If it offends you that software can be both accurate and aggressive: touch grass, then clear cache.
