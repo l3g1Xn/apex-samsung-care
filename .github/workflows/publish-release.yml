@@ -35,6 +35,14 @@ jobs:
           cp "$SRC" dist/ApexCare-v0.1.7-beta.apk
           ls -lh dist/ApexCare-v0.1.7-beta.apk
 
+      - name: Delete existing release if present
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete v0.1.7-beta --yes --repo ${{ github.repository }} || true
+          git push origin :refs/tags/v0.1.7-beta || true
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -46,14 +54,28 @@ jobs:
           body: |
             ## Apex Care v0.1.7 beta
 
-            Package `com.apexcare.app` · versionCode **17** · versionName **0.1.7-beta**
+            ### APK
+            - `ApexCare-v0.1.7-beta.apk`
+            - Package: `com.apexcare.app`
+            - versionName **0.1.7-beta** · versionCode **17**
 
-            - Care health score + Optimize / Clean (non-vital background apps)
-            - Protect rules for core OS / telephony / keyboard
-            - Safe local malware / PUA heuristics
-            - Apps inventory with pinned bottom nav
-            - RAM widget: free/total RAM, disk free, process count, animated Clean
+            ### What's new
+            - **Accurate RAM** — free % from multi-sample median `/proc/meminfo` MemAvailable (app + widget)
+            - Primary UI: **free RAM percentage bubble**
+            - **Force close** — root `am force-stop` when rooted; used by Optimize, Clean, and per-app Force close
+            - **Running Apps & Processes** tab — live list with PSS; closed apps leave the list
+            - **Safe auto-close** — after scan, force-closes open high/medium risk apps (toggle on Safe)
+            - Bottom nav stays pinned (no overlay bug)
 
-            Install: uninstall older Apex Care → install this APK → badge **v0.1.7 beta**.
+            ### Install
+            1. Uninstall older Apex Care
+            2. Install this APK
+            3. Grant root if you want full FORCE_CLOSE (optional)
+            4. Badge should read **v0.1.7 beta**
+
+            ### Notes
+            - Without root, background kill is used (Android restriction)
+            - Core OS / phone / keyboard never force-closed
+            - ~3.7 GB free on a 12 GB S25 Ultra is normal (MemAvailable after system reservation)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
