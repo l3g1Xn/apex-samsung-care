@@ -1,10 +1,8 @@
 package com.apexcare.app;
 
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
 
@@ -139,48 +137,48 @@ public final class MagiskRoot {
         boolean hasMagiskApp = pkg != null && !pkg.isEmpty();
         long ver = magiskVersion.get();
 
-        // 1) Real Magisk runtime (boot already patched)?
+        // Never start Magisk Manager UI — stay inside Apex Care.
+        // Magisk Superuser grant (when boot is patched) is triggered by the Magisk
+        // su binary / magiskd the same way Magisk's own apps request root (libsu-style).
+        // That may show Magisk's system Superuser dialog overlay; it does NOT open Magisk main.
+
+        // 1) Real Magisk / su runtime
         boolean runtime = detectMagiskRuntime();
         if (runtime || canExecSu()) {
             Result su = requestMagiskSu(context, hasMagiskApp ? pkg : null);
             if (su.ok) return su;
-            // Magisk present but Superuser denied / empty policy — still open Superuser + userspace
+            // Superuser empty/denied — userspace temp root without leaving Apex
             if (hasMagiskApp) {
-                openMagiskSuperuser(context, pkg);
-                Result us = activateUserspace(context, true,
-                        "Magisk Superuser empty or denied. Userspace TEMP ROOT active for 30 min. "
-                                + "If Magisk shows a grant prompt, allow Apex Care for real uid=0.");
-                return us;
+                return activateUserspace(context, true,
+                        "Magisk Superuser not granted yet. Userspace TEMP ROOT active 30 min inside Apex Care. "
+                                + "If a Magisk grant dialog appears, tap Allow — no need to open Magisk app.");
             }
             return su;
         }
 
-        // 2) Magisk app installed (e.g. 307000) but image NOT flashed — Superuser/modules empty
+        // 2) Magisk Manager installed but boot not patched — in-app temp root only
         if (hasMagiskApp) {
-            openMagiskApp(context, pkg);
             Result us = activateUserspace(context, true,
-                    "Magisk " + ver + " detected (app only — boot not patched / Superuser empty). "
-                            + "Userspace TEMP ROOT engaged (proot-style, 30 min). "
-                            + "Open Magisk → Install to flash for real su; until then Apex uses elevated app session.");
+                    "Magisk " + ver + " detected (app only / not flashed). "
+                            + "Userspace TEMP ROOT engaged inside Apex Care (30 min). "
+                            + "Staying in Apex — Magisk app not opened.");
             mode.set(MODE_NEED_SETUP);
-            // Keep userspace flag true; mode string for UI
             return new Result(true, MODE_USERSPACE, us.suPath, us.message + " · magiskPkg=" + pkg);
         }
 
-        // 3) No Magisk at all — pure userspace temp root
+        // 3) No Magisk — pure userspace
         return activateUserspace(context, false,
-                "No Magisk app. Userspace TEMP ROOT session (30 min) — aggressive app-level elevate only.");
+                "Userspace TEMP ROOT (30 min) inside Apex Care — no Magisk app switch.");
     }
 
+    /**
+     * Magisk-compatible su request (inspired by topjohnwu libsu / Magisk su protocol).
+     * Invokes su binaries only — magiskd shows Superuser dialog if policy requires it.
+     * Does not launch Magisk Manager.
+     */
     private Result requestMagiskSu(Context context, String magiskPackage) {
         closeLiveShell();
         realRoot.set(false);
-
-        if (magiskPackage != null) {
-            // Warm Magisk daemon / Superuser UI path (non-blocking best effort)
-            openMagiskSuperuser(context, magiskPackage);
-            try { Thread.sleep(400); } catch (InterruptedException ignored) {}
-        }
 
         List<String> tried = new ArrayList<>();
         for (String path : buildSuTryList()) {
@@ -331,47 +329,14 @@ public final class MagiskRoot {
         return false;
     }
 
+    /** Intentionally empty — Grant Root must never leave Apex Care for Magisk Manager. */
     private void openMagiskApp(Context context, String pkg) {
-        if (context == null || pkg == null) return;
-        try {
-            PackageManager pm = context.getPackageManager();
-            Intent launch = pm.getLaunchIntentForPackage(pkg);
-            if (launch != null) {
-                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                context.startActivity(launch);
-                return;
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "open Magisk", e);
-        }
-        try {
-            Intent i = new Intent(Intent.ACTION_MAIN);
-            i.setPackage(pkg);
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(i);
-        } catch (Exception ignored) {}
+        Log.i(TAG, "skip Magisk app launch (in-process only) pkg=" + pkg);
     }
 
     private void openMagiskSuperuser(Context context, String pkg) {
-        if (context == null || pkg == null) return;
-        // Try known Magisk deep links / components (best effort across forks)
-        String[] actions = {
-                "android.intent.action.APPLICATION_PREFERENCES",
-                Intent.ACTION_VIEW
-        };
-        for (String action : actions) {
-            try {
-                Intent i = new Intent(action);
-                i.setPackage(pkg);
-                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                if (Intent.ACTION_VIEW.equals(action)) {
-                    i.setData(Uri.parse("magisk://superuser"));
-                }
-                context.startActivity(i);
-                return;
-            } catch (Exception ignored) {}
-        }
-        openMagiskApp(context, pkg);
+        // Magisk Superuser is requested solely via su binary → magiskd dialog overlay.
+        Log.i(TAG, "skip Magisk Superuser activity (su protocol only) pkg=" + pkg);
     }
 
     // ── su execution ────────────────────────────────────────────────────────
