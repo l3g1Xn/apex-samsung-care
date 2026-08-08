@@ -1009,7 +1009,7 @@ function morePanel() {
         '<div class="stat"><div class="t">Bridge</div><div class="v" style="font-size:.9rem">' + (isDemoBridge ? "Demo" : hasNative ? "Native" : "—") + '</div></div>' +
         '<div class="stat"><div class="t">Root mode</div><div class="v" style="font-size:.9rem">' + escapeHtml(state.rootMode || "none") + '</div></div>' +
         '<div class="stat"><div class="t">Free RAM</div><div class="v">' + (freePctOf(state.mem) != null ? freePctOf(state.mem) + "%" : "—") + '</div></div>' +
-        '<div class="stat"><div class="t">Temp root left</div><div class="v">' + (state.userspaceRemainingSec || 0) + "s</div></div>' +
+        '<div class="stat"><div class="t">Temp root left</div><div class="v">' + (state.userspaceRemainingSec || 0) + 's</div></div>' +
       '</div>' +
       '<button class="btn btn-secondary mt" onclick="window.AC.pingHealth()">Run health ping</button>' +
       (state.healthMsg ? '<p class="clean-status">' + escapeHtml(state.healthMsg) + '</p>' : '') +
