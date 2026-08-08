@@ -37,7 +37,7 @@ jobs:
           test -f android/keystore/apex-release.jks
           ls -la android/keystore/
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Resolve version from tag
         id: ver
