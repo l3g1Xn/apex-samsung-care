@@ -27,7 +27,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - name: local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
