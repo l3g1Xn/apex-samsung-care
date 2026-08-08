@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="844" height="1091" viewBox="0 0 844 1091">
+  <defs>
+    <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF8A00"/>
+      <stop offset="38%" stop-color="#FF3B00"/>
+      <stop offset="70%" stop-color="#C4002B"/>
+      <stop offset="100%" stop-color="#141414"/>
+    </linearGradient>
+    <linearGradient id="bgGlow" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#2A1000"/>
+      <stop offset="55%" stop-color="#0A0B0D"/>
+      <stop offset="100%" stop-color="#050506"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="28" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="844" height="1091" fill="url(#bgGlow)"/>
+  <ellipse cx="422" cy="360" rx="220" ry="200" fill="#FF6A00" opacity="0.18"/>
+  <g transform="translate(422,340) rotate(-6)">
+    <rect x="-150" y="-150" width="300" height="300" rx="58" fill="#FFCC00" filter="url(#softGlow)" opacity="0.35"/>
+    <rect x="-148" y="-148" width="296" height="296" rx="56" fill="url(#iconGrad)" stroke="#FFCC00" stroke-width="10" filter="url(#glow)"/>
+    <text x="0" y="18" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-weight="900" font-size="118" fill="#FFFFFF" letter-spacing="-4">AC</text>
+    <text x="0" y="72" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-weight="800" font-size="28" fill="#FFCC00" letter-spacing="8">APEX</text>
+  </g>
+  <text x="422" y="620" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-weight="700" font-size="72" fill="#EEF1F4" letter-spacing="-1.5">Apex Care</text>
+  <text x="422" y="690" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-weight="500" font-size="24" fill="#8B959E" letter-spacing="6">MAKE RAM GREAT AGAIN</text>
+  <text x="422" y="780" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-weight="600" font-size="28" fill="#3ECFBF" letter-spacing="1">v1.0.1 · Maintenance</text>
+</svg>

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/apex-care-hero.png" alt="Apex Care — Make RAM Great Again" width="420" />
+  <img src="docs/assets/apex-care-hero.svg" alt="Apex Care — Make RAM Great Again · v1.0.1" width="420" />
 </p>
 
 <h1 align="center">Apex Care</h1>
@@ -18,7 +18,9 @@ Sideloaded Samsung device care for **One UI**. Accurate free RAM (Device Care mo
 
 ### Download
 
-**[Latest release](https://github.com/l3g1Xn/apex-samsung-care/releases/latest)** · prior sole build: [v1.0.0 Full Send](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v1.0.0)
+**[Apex Care v1.0.1](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v1.0.1)** · [ApexCare-v1.0.1.apk](https://github.com/l3g1Xn/apex-samsung-care/releases/download/v1.0.1/ApexCare-v1.0.1.apk)
+
+Prior: [v1.0.0 Full Send](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v1.0.0)
 
 1. Uninstall any older Apex Care if Android asks  
 2. Install the signed universal APK  
@@ -38,7 +40,7 @@ Package `com.apexcare.app` · versionCode **19** · versionName **1.0.1** · min
 | **Widget** | Free % primary · used / available GB · Clean action |
 | **Safe** | On-device heuristics · debuggable / outdated SDK signals |
 
-## v1.0.1 maintenance (this line)
+## v1.0.1 maintenance
 
 - Shell **command allowlist** + package-name validation (no injection into `su -c`)
 - Expanded One UI **protect list** (telephony, input, Knox, Magisk, launcher, GMS)
@@ -76,4 +78,4 @@ See [SECURITY.md](SECURITY.md). Protect list covers core OS, telephony, keyboard
 ---
 
 **Not affiliated with Samsung, Google, or Magisk.**  
-**Apex Care — Make RAM Great Again.**
+**Apex Care v1.0.1 — Make RAM Great Again.**
