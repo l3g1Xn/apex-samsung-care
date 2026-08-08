@@ -1,10 +1,17 @@
 name: Publish Release
 
+# Only on explicit version tags — never re-wipe sole release.
+# Avoids redundant Full Send re-publishes of the same premise.
 on:
-  workflow_dispatch:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.0.1)"
+        required: true
+        default: "v1.0.1"
 
 permissions:
   contents: write
@@ -32,85 +39,82 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Resolve version from tag
+        id: ver
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          TAG="${TAG#refs/tags/}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # ApexCare-v1.0.1.apk from v1.0.1
+          NAME="ApexCare-${TAG}.apk"
+          echo "apk=$NAME" >> "$GITHUB_OUTPUT"
+          echo "Resolved $TAG -> $NAME"
+
       - name: Build signed universal release APK
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Stage + verify signature (must not be unsigned)
+      - name: Stage + verify signature
         run: |
           set -euo pipefail
           mkdir -p dist
           SRC=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
           test -f "$SRC"
-          cp "$SRC" dist/ApexCare-v1.0.0.apk
-          ls -lh dist/ApexCare-v1.0.0.apk
+          APK="dist/${{ steps.ver.outputs.apk }}"
+          cp "$SRC" "$APK"
+          ls -lh "$APK"
 
-          # v1 jar signature check
-          jarsigner -verify -verbose -certs dist/ApexCare-v1.0.0.apk | tee /tmp/jsign.txt
+          jarsigner -verify -verbose -certs "$APK" | tee /tmp/jsign.txt
           grep -qi "jar verified" /tmp/jsign.txt
 
-          # Must have CERT.RSA / .SF
-          unzip -l dist/ApexCare-v1.0.0.apk | grep -E 'META-INF/.*\.(RSA|SF|MF)' | tee /tmp/meta.txt
+          unzip -l "$APK" | grep -E 'META-INF/.*\.(RSA|SF|MF)' | tee /tmp/meta.txt
           test -s /tmp/meta.txt
 
-          # APK Signature Scheme v2/v3 block present
-          python3 - <<'PY'
-          data=open("dist/ApexCare-v1.0.0.apk","rb").read()
+          python3 - <<PY
+          data=open("$APK","rb").read()
           assert data.rfind(b"APK Sig Block 42") != -1, "missing APK Signature Scheme v2/v3 block"
           print("APK Sig Block OK")
           PY
 
-          # Prefer apksigner if SDK provides it
           APKSIGNER=$(find "$ANDROID_HOME" -name apksigner 2>/dev/null | head -1 || true)
           if [ -n "$APKSIGNER" ]; then
-            "$APKSIGNER" verify --verbose dist/ApexCare-v1.0.0.apk
+            "$APKSIGNER" verify --verbose "$APK"
           fi
           echo "SIGNED UNIVERSAL APK READY"
 
-      - name: Recreate v1.0.0 release (wipe prior assets/tags)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          # Delete every release so only the new v1.0.0 remains
-          for tag in $(gh release list --limit 50 --json tagName -q '.[].tagName' 2>/dev/null || true); do
-            echo "Deleting release $tag"
-            gh release delete "$tag" --yes --cleanup-tag 2>/dev/null || true
-          done
-          # Drop any leftover tags (previous versions)
-          for ref in $(git ls-remote --tags origin | awk '{print $2}' | sed 's#refs/tags/##' | sed 's#\^{}##'); do
-            echo "Deleting tag $ref"
-            git push origin ":refs/tags/$ref" 2>/dev/null || true
-          done
-
-      - name: Publish v1.0.0 (signed)
+      - name: Publish release (non-destructive)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          name: Apex Care - Full Send Edition v1.0.0
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: Apex Care ${{ steps.ver.outputs.tag }}
           prerelease: false
           make_latest: true
-          files: dist/ApexCare-v1.0.0.apk
+          files: dist/${{ steps.ver.outputs.apk }}
           fail_on_unmatched_files: true
           body: |
-            ## Apex Care - Full Send Edition v1.0.0
+            ## Apex Care ${{ steps.ver.outputs.tag }}
 
-            Package `com.apexcare.app` · versionCode **18** · versionName **1.0.0**
+            Maintenance / security build for **Make RAM Great Again**.
 
-            **Sole release** — replaces all prior APKs. Signed universal (v1 + v2 + v3).  
-            Only asset: `ApexCare-v1.0.0.apk`
-
-            ### Highlights
-            - **RAM free/used fixed** (Device Care aligned): free = available, used = total − free
-            - Magisk Grant Root + userspace TEMP ROOT when Superuser empty
-            - Universal Samsung APK · widget free% corrected
+            Package `com.apexcare.app` · signed universal (v1 + v2 + v3)
 
             ### Install
-            1. **Uninstall any older Apex Care** first
-            2. Download **ApexCare-v1.0.0.apk** only
-            3. Install → open → check free% vs Device Care
-            4. Badge **v1.0.0**
+            1. Uninstall older Apex Care if prompted
+            2. Install **${{ steps.ver.outputs.apk }}** only
+            3. Open → check free% vs Samsung Device Care
+            4. Optional: Grant Temporary Root (Magisk su in-process)
 
-            Demo signing for sideload — not Play Store.
+            ### Safety
+            - Package-name allowlist before any `am force-stop`
+            - Expanded One UI protect list
+            - WebView offline + no file cross-origin
+            - Demo signing for sideload — not Play Store
+
+            **Not affiliated with Samsung, Google, or Magisk.**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

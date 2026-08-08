@@ -244,6 +244,11 @@ public final class MagiskRoot {
     /** Run command: real su if available; userspace returns false for shell cmds. */
     public boolean run(String command) {
         if (command == null || command.isEmpty()) return false;
+        // Refuse free-form shell with metacharacters (injection surface)
+        if (!isSafeRootCommand(command)) {
+            Log.w(TAG, "rejected unsafe root command");
+            return false;
+        }
         if (realRoot.get() || probeSuQuick(1200)) {
             if (shellAlive()) {
                 Boolean live = execOnLive(command);
@@ -257,6 +262,52 @@ public final class MagiskRoot {
         }
         // Userspace: no uid=0 shell — callers use non-root Android APIs
         return isUserspaceActive();
+    }
+
+    /**
+     * Safe force-stop: package must pass {@link ProtectedPackages#isValidPackage}.
+     * Never interpolates untrusted strings into a shell.
+     */
+    public boolean forceStopPackage(String packageName) {
+        if (!ProtectedPackages.isValidPackage(packageName)) return false;
+        if (ProtectedPackages.isProtected(null, packageName)) return false;
+        boolean a = run("am force-stop " + packageName);
+        boolean b = run("cmd activity force-stop " + packageName);
+        return a || b;
+    }
+
+    /** Allow only narrow, known-safe root commands used by Apex Care. */
+    private static boolean isSafeRootCommand(String command) {
+        String c = command.trim();
+        if (c.isEmpty() || c.length() > 240) return false;
+        // Disallow chaining / expansion / quoting
+        for (int i = 0; i < c.length(); i++) {
+            char ch = c.charAt(i);
+            if (ch == ';' || ch == '|' || ch == '&' || ch == '$' || ch == '`'
+                    || ch == '\\' || ch == '<' || ch == '>' || ch == '(' || ch == ')'
+                    || ch == '{' || ch == '}' || ch == '[' || ch == ']' || ch == '"'
+                    || ch == '\'' || ch == '\n' || ch == '\r' || ch == '*' || ch == '?'
+                    || ch == '!' || ch == '#') {
+                return false;
+            }
+        }
+        if ("id".equals(c)) return true;
+        if (c.startsWith("am force-stop ")) {
+            return ProtectedPackages.isValidPackage(c.substring("am force-stop ".length()).trim());
+        }
+        if (c.startsWith("cmd activity force-stop ")) {
+            return ProtectedPackages.isValidPackage(
+                    c.substring("cmd activity force-stop ".length()).trim());
+        }
+        if (c.startsWith("kill -9 ")) {
+            String pid = c.substring("kill -9 ".length()).trim();
+            if (pid.isEmpty() || pid.length() > 10) return false;
+            for (int i = 0; i < pid.length(); i++) {
+                if (!Character.isDigit(pid.charAt(i))) return false;
+            }
+            return true;
+        }
+        return false;
     }
 
     /** Status blob for JS bridge. */

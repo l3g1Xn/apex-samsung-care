@@ -26,28 +26,6 @@ public class RamCleanerWidget extends AppWidgetProvider {
 
     private static final Handler HANDLER = new Handler(Looper.getMainLooper());
 
-    private static final Set<String> PROTECTED = new HashSet<>();
-    static {
-        PROTECTED.add("android");
-        PROTECTED.add("com.android.systemui");
-        PROTECTED.add("com.android.settings");
-        PROTECTED.add("com.android.phone");
-        PROTECTED.add("com.android.server.telecom");
-        PROTECTED.add("com.google.android.gms");
-        PROTECTED.add("com.google.android.gsf");
-        PROTECTED.add("com.android.inputmethod.latin");
-        PROTECTED.add("com.google.android.inputmethod.latin");
-        PROTECTED.add("com.android.permissioncontroller");
-        PROTECTED.add("com.google.android.permissioncontroller");
-        PROTECTED.add("com.android.providers.settings");
-        PROTECTED.add("com.android.providers.telephony");
-        PROTECTED.add("com.android.bluetooth");
-        PROTECTED.add("com.android.nfc");
-        PROTECTED.add("com.android.keychain");
-        PROTECTED.add("com.android.shell");
-        PROTECTED.add("com.android.vending");
-    }
-
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
         for (int id : appWidgetIds) {
@@ -103,10 +81,8 @@ public class RamCleanerWidget extends AppWidgetProvider {
 
         RamMetrics ram = RamMetrics.sample(context);
         boolean rooted = hasRoot();
-        // free% = available/total; used = total-available (never inverted)
         views.setTextViewText(R.id.widget_title,
                 rooted ? "Apex Care · ROOT" : "Apex Care");
-        // Device Care model: free% primary; used GB of total secondary
         views.setTextViewText(R.id.widget_ram,
                 String.format(Locale.US, "%d%% free", ram.freePct));
         views.setTextViewText(R.id.widget_storage,
@@ -136,21 +112,8 @@ public class RamCleanerWidget extends AppWidgetProvider {
         manager.updateAppWidget(appWidgetId, views);
     }
 
-    private static boolean isProtected(Context context, String pkg) {
-        if (pkg == null) return true;
-        if (pkg.equals(context.getPackageName())) return true;
-        if (PROTECTED.contains(pkg)) return true;
-        String lower = pkg.toLowerCase(Locale.US);
-        return lower.contains("telecom") || lower.contains("telephony")
-                || lower.contains("inputmethod") || pkg.startsWith("com.android.providers.");
-    }
-
     private static boolean hasRoot() {
         return MagiskRoot.get().isGranted() || MagiskRoot.get().probeQuick();
-    }
-
-    private static boolean runAsRoot(String cmd) {
-        return MagiskRoot.get().run(cmd);
     }
 
     private static class CleanResult {
@@ -159,11 +122,12 @@ public class RamCleanerWidget extends AppWidgetProvider {
         boolean hasRoot;
     }
 
-    /** Force-close non-protected running packages (root am force-stop when available). */
+    /** Force-close non-protected running packages (validated package names only). */
     private static CleanResult runForceClean(Context context) {
         CleanResult cr = new CleanResult();
         long before = readAvailBytes(context);
         cr.hasRoot = hasRoot();
+        MagiskRoot magisk = MagiskRoot.get();
         try {
             ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
             if (am == null) return cr;
@@ -173,42 +137,60 @@ public class RamCleanerWidget extends AppWidgetProvider {
                 for (ActivityManager.RunningAppProcessInfo p : procs) {
                     if (p.pkgList == null) continue;
                     for (String pkg : p.pkgList) {
-                        if (seen.contains(pkg) || isProtected(context, pkg)) continue;
+                        if (seen.contains(pkg)) continue;
+                        if (!ProtectedPackages.isValidPackage(pkg)) continue;
+                        if (ProtectedPackages.isProtected(context, pkg)) continue;
                         seen.add(pkg);
-                        if (cr.hasRoot) {
-                            runAsRoot("am force-stop " + pkg);
-                            runAsRoot("kill -9 " + p.pid);
+                        if (cr.hasRoot && magisk.isRealRoot()) {
+                            magisk.forceStopPackage(pkg);
+                            if (p.pid > 0) {
+                                magisk.run("kill -9 " + p.pid);
+                            }
                         } else {
-                            try { am.killBackgroundProcesses(pkg); } catch (Exception ignored) {}
+                            try {
+                                am.killBackgroundProcesses(pkg);
+                            } catch (Exception ignored) {}
                         }
                         cr.closed++;
                     }
                 }
             }
-            // Non-vital OEM helpers
+            // Non-vital OEM helpers (capped)
             try {
                 PackageManager pm = context.getPackageManager();
                 List<ApplicationInfo> apps = pm.getInstalledApplications(0);
+                int extra = 0;
                 for (ApplicationInfo ai : apps) {
-                    if (isProtected(context, ai.packageName) || seen.contains(ai.packageName)) continue;
+                    if (extra >= 40) break;
+                    if (!ProtectedPackages.isValidPackage(ai.packageName)) continue;
+                    if (ProtectedPackages.isProtected(context, ai.packageName) || seen.contains(ai.packageName)) {
+                        continue;
+                    }
                     String p = ai.packageName.toLowerCase(Locale.US);
                     boolean system = (ai.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
-                    if (system && !(p.contains("lool") || p.contains("game") || p.contains("tips")
+                    if (system && !(p.contains("game") || p.contains("tips")
                             || p.contains("theme") || p.startsWith("com.samsung.android.app."))) {
                         continue;
                     }
-                    if (cr.hasRoot) {
-                        runAsRoot("am force-stop " + ai.packageName);
+                    // Never auto-clean Device Care / Knox / launcher via OEM pass
+                    if (p.contains("lool") || p.contains("knox") || p.contains("launcher")) continue;
+                    if (cr.hasRoot && magisk.isRealRoot()) {
+                        magisk.forceStopPackage(ai.packageName);
                     } else {
-                        try { am.killBackgroundProcesses(ai.packageName); } catch (Exception ignored) {}
+                        try {
+                            am.killBackgroundProcesses(ai.packageName);
+                        } catch (Exception ignored) {}
                     }
                     cr.closed++;
                     seen.add(ai.packageName);
+                    extra++;
                 }
             } catch (Exception ignored) {
             }
             System.gc();
-            try { Thread.sleep(80); } catch (InterruptedException ignored) {}
+            try {
+                Thread.sleep(80);
+            } catch (InterruptedException ignored) {}
         } catch (Exception ignored) {
         }
         long after = readAvailBytes(context);

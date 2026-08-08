@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: local.properties
+        run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Assemble release (signed, no publish)
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Verify APK signature
+        run: |
+          set -euo pipefail
+          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          jarsigner -verify "$APK" | tee /tmp/jsign.txt
+          grep -qi "jar verified" /tmp/jsign.txt
+          python3 - <<PY
+          data=open("$APK","rb").read()
+          assert data.rfind(b"APK Sig Block 42") != -1
+          print("sig ok")
+          PY
+
+      - name: Guard — no shell injection helpers
+        run: |
+          set -euo pipefail
+          # force-stop must go through validated package API
+          grep -q "forceStopPackage" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
+          grep -q "isSafeRootCommand" android/app/src/main/java/com/apexcare/app/MagiskRoot.java
+          grep -q "isValidPackage" android/app/src/main/java/com/apexcare/app/ProtectedPackages.java
+          # Must not re-enable universal file URL access
+          ! grep -q "setAllowUniversalAccessFromFileURLs(true)" android/app/src/main/java/com/apexcare/app/MainActivity.java
+          echo "security guards OK"

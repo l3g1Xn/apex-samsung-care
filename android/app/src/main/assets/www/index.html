@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
   <meta name="theme-color" content="#07080a" />
-  <title>Apex Care v1.0.0</title>
+  <title>Apex Care v1.0.1</title>
   <style>
     :root {
       --bg: #07080a; --surface: #101214; --elevated: #161a1e; --subtle: #1c2228;
@@ -170,6 +170,32 @@
     .root-badge.on { background: #5ecf8a22; color: var(--ok); border: 1px solid #5ecf8a55; }
     .root-badge.off { background: #e8b86d18; color: var(--warn); border: 1px solid #e8b86d44; }
 
+    /* Mobile / One UI compatibility */
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    body { padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left); }
+    .app { max-width: 28rem; width: 100%; }
+    header { padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right)); }
+    main { padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right)); }
+    nav.shell-nav button { min-height: 3.75rem; touch-action: manipulation; }
+    .btn, .widget-clean, .switch { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    .btn { min-height: 44px; }
+    .demo-banner {
+      font-size: 11px; font-weight: 600; letter-spacing: .04em; text-align: center;
+      padding: .4rem .75rem; background: #e8b86d22; color: var(--warn);
+      border-bottom: 1px solid #e8b86d44;
+    }
+    .pressure-ok { color: var(--ok); }
+    .pressure-warn { color: var(--warn); }
+    .pressure-hot { color: var(--danger); }
+    @media (prefers-reduced-motion: reduce) {
+      .splash-logo, .widget-clean.running, .btn-primary.running, .spin-dot { animation: none !important; }
+    }
+    @media (max-width: 360px) {
+      nav.shell-nav button .nav-sub { display: none; }
+      nav.shell-nav button { min-height: 3.4rem; }
+      .ring { width: 140px; height: 140px; }
+    }
+
   </style>
 </head>
 <body>
@@ -180,27 +206,160 @@
   </div>
   <h1>Apex Care</h1>
   <p>Make RAM Great Again</p>
-  <div class="ver">v1.0.0 · Full Send</div>
+  <div class="ver">v1.0.1 · Maintenance</div>
 </div>
 <div class="app" id="app"></div>
 <script>
-const VERSION = "v1.0.0";
-const VERSION_CODE = 18;
+const VERSION = "v1.0.1";
+const VERSION_CODE = 19;
 const PACKAGE_ID = "com.apexcare.app";
 const GITHUB = "https://github.com/l3g1Xn/apex-samsung-care";
+
+/* Demo / web preview bridge when not running inside the APK WebView */
+(function installDemoBridge() {
+  if (typeof window.ApexNative !== "undefined") return;
+  var totalGb = 12;
+  var freeGb = 4.8;
+  var usedGb = totalGb - freeGb;
+  var hasRoot = false;
+  var realRoot = false;
+  var mode = "none";
+  var userspaceUntil = 0;
+  var procs = [
+    { packageName: "com.sec.android.app.sbrowser", name: "Samsung Internet", system: true, pid: 1201, importance: "cached", ramMb: 186, running: true },
+    { packageName: "com.samsung.android.app.notes", name: "Samsung Notes", system: true, pid: 1304, importance: "cached", ramMb: 92, running: true },
+    { packageName: "com.spotify.music", name: "Spotify", system: false, pid: 2210, importance: "service", ramMb: 210, running: true },
+    { packageName: "com.instagram.android", name: "Instagram", system: false, pid: 2401, importance: "cached", ramMb: 340, running: true },
+    { packageName: "com.discord", name: "Discord", system: false, pid: 2502, importance: "service", ramMb: 178, running: true },
+    { packageName: "com.google.android.youtube", name: "YouTube", system: false, pid: 2600, importance: "cached", ramMb: 420, running: true },
+    { packageName: "com.android.systemui", name: "System UI", system: true, pid: 900, importance: "foreground", ramMb: 120, running: true },
+    { packageName: "com.google.android.gms", name: "Play services", system: true, pid: 910, importance: "service", ramMb: 160, running: true }
+  ];
+  function mem() {
+    freeGb = Math.max(1.2, Math.min(totalGb - 0.8, freeGb));
+    usedGb = Math.max(0.1, totalGb - freeGb);
+    var freePct = Math.round((freeGb / totalGb) * 100);
+    var usedPct = 100 - freePct;
+    var usLeft = userspaceUntil > Date.now() ? Math.floor((userspaceUntil - Date.now()) / 1000) : 0;
+    return {
+      ok: true, pctFree: freePct, pctUsed: usedPct,
+      totalRamGb: totalGb, freeRamGb: +freeGb.toFixed(2), usedRamGb: +usedGb.toFixed(2),
+      freeRamPct: freePct, usedRamPct: usedPct, availablePct: freePct, availableGb: +freeGb.toFixed(2),
+      inUsePct: usedPct, inUseGb: +usedGb.toFixed(2),
+      physicalTotalKb: totalGb * 1024 * 1024, usableTotalKb: 11.1 * 1024 * 1024,
+      hwCached: true, lowMemory: freePct < 18, hasRoot: hasRoot, realRoot: realRoot,
+      mode: mode, runningProcesses: procs.length,
+      storageAvailGb: 48.2, storageUsedPct: 61,
+      memSource: "demo:DeviceCare:marketed", model: "device_care_marketed",
+      userspaceRemainingSec: usLeft, magiskVersion: 0
+    };
+  }
+  window.ApexNative = {
+    _demo: true,
+    getMemoryStats: function () { return JSON.stringify(mem()); },
+    getMemoryInfo: function () { return this.getMemoryStats(); },
+    getRootStatus: function () {
+      return JSON.stringify({ ok: true, hasRoot: hasRoot, realRoot: realRoot, mode: mode,
+        userspaceRemainingSec: userspaceUntil > Date.now() ? Math.floor((userspaceUntil - Date.now()) / 1000) : 0,
+        message: hasRoot ? (realRoot ? "Demo Magisk root" : "Demo TEMP ROOT") : "Demo: no root" });
+    },
+    requestRootAccess: function () {
+      hasRoot = true; realRoot = false; mode = "userspace_temp";
+      userspaceUntil = Date.now() + 30 * 60 * 1000;
+      var o = JSON.parse(this.getRootStatus());
+      o.ok = true; o.message = "DEMO · Userspace TEMP ROOT (30 min) — preview only. Install APK for real Magisk.";
+      o.mem = mem();
+      return JSON.stringify(o);
+    },
+    getRunningProcesses: function () {
+      var list = procs.map(function (p) {
+        return Object.assign({}, p, { protected: isProtected(p.packageName), label: p.name });
+      });
+      return JSON.stringify({ ok: true, processes: list, apps: list, hasRoot: hasRoot });
+    },
+    forceCloseApp: function (pkg) {
+      if (!isValidPackage(pkg) || isProtected(pkg)) return JSON.stringify({ ok: false, error: "protected" });
+      var before = freeGb;
+      procs = procs.filter(function (p) { return p.packageName !== pkg; });
+      freeGb = Math.min(totalGb - 0.5, freeGb + 0.25 + Math.random() * 0.35);
+      return JSON.stringify({ ok: true, hasRoot: hasRoot, method: hasRoot ? "demo_force_stop" : "demo_kill_bg",
+        freedMb: Math.round((freeGb - before) * 1024), mem: mem() });
+    },
+    closeBackgroundApp: function (p) { return this.forceCloseApp(p); },
+    optimizeDevice: function () {
+      var closed = 0; var closedPackages = [];
+      var keep = [];
+      procs.forEach(function (p) {
+        if (isProtected(p.packageName) || p.importance === "foreground") { keep.push(p); return; }
+        closed++; closedPackages.push(p.packageName);
+        freeGb = Math.min(totalGb - 0.5, freeGb + 0.2);
+      });
+      procs = keep;
+      return JSON.stringify({ ok: true, closed: closed, closedPackages: closedPackages, hasRoot: hasRoot,
+        method: hasRoot ? "demo_root_force_stop" : "demo_kill_background", mem: mem() });
+    },
+    forceCloseIfOpen: function (json) {
+      var arr = [];
+      try { arr = JSON.parse(json || "[]"); } catch (e) {}
+      var closed = 0;
+      arr.slice(0, 80).forEach(function (pkg) {
+        if (!isValidPackage(pkg) || isProtected(pkg)) return;
+        var n = procs.length;
+        procs = procs.filter(function (p) { return p.packageName !== pkg; });
+        if (procs.length < n) { closed++; freeGb = Math.min(totalGb - 0.5, freeGb + 0.15); }
+      });
+      return JSON.stringify({ ok: true, closed: closed, hasRoot: hasRoot, mem: mem() });
+    },
+    scanInstalledApps: function () { return this.getRunningProcesses(); },
+    runHeuristicScan: function () {
+      return JSON.stringify({
+        ok: true, score: 88, packages: 312, userApps: 94, systemApps: 218,
+        disabled: 0, sideloaded: 3, debuggable: 0, highRiskPermHits: 0, outdatedTarget: 4,
+        findingCount: 1, malwareSignals: 0, puaSignals: 0,
+        findings: [{ title: "Sideloaded apps present", detail: "3 packages without Play Store installer (demo).", severity: "info", kind: "sideload", packageName: "com.example.demo", running: false }],
+        openRiskPackages: [], hasRoot: hasRoot, scannedAt: Date.now()
+      });
+    },
+    getDeviceInfo: function () {
+      return JSON.stringify({ ok: true, model: "Galaxy S23 (demo)", manufacturer: "samsung", brand: "samsung",
+        sdk: 34, release: "14", hasRoot: hasRoot, rooted: hasRoot, realRoot: realRoot, mode: mode,
+        packageId: PACKAGE_ID, rootDetail: "Web demo bridge" });
+    },
+    getHealthPing: function () {
+      var m = mem();
+      return JSON.stringify({ ok: true, ts: Date.now(), freePct: m.freeRamPct, usedPct: m.usedRamPct,
+        lowMemory: m.lowMemory, hasRoot: hasRoot, realRoot: realRoot, mode: mode,
+        userspaceRemainingSec: m.userspaceRemainingSec, jvmFreeMb: 48, jvmMaxMb: 256, sdk: 34, model: "demo" });
+    }
+  };
+})();
+
 const hasNative = typeof ApexNative !== "undefined";
+const isDemoBridge = !!(hasNative && ApexNative._demo);
+
 
 const CORE_PROTECT = new Set([
   "android", "com.android.systemui", "com.android.settings", "com.android.phone",
   "com.android.server.telecom", "com.google.android.gms", "com.google.android.gsf",
   "com.android.inputmethod.latin", "com.google.android.inputmethod.latin",
+  "com.samsung.android.honeyboard", "com.sec.android.inputmethod",
   "com.android.permissioncontroller", "com.google.android.permissioncontroller",
   "com.android.providers.settings", "com.android.providers.telephony",
   "com.android.providers.contacts", "com.android.providers.media",
   "com.android.bluetooth", "com.android.nfc", "com.android.keychain", "com.android.shell",
   "com.android.networkstack", "com.android.networkstack.tethering", "com.android.vending",
+  "com.sec.android.app.launcher", "com.samsung.android.lool", "com.samsung.android.sm",
+  "com.samsung.android.messaging", "com.samsung.android.dialer",
+  "com.topjohnwu.magisk", "io.github.vvb2060.magisk", "io.github.huskydg.magisk",
   PACKAGE_ID
 ]);
+
+/** Android package name validation (matches native ProtectedPackages). */
+function isValidPackage(pkg) {
+  if (!pkg || typeof pkg !== "string" || pkg.length > 200) return false;
+  if (/[\s;|&$`<>(){}\[\]"'\\/*?!#]/.test(pkg)) return false;
+  return /^[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+$/.test(pkg);
+}
 
 const state = {
   tab: "home",
@@ -235,6 +394,7 @@ const state = {
     findings: [], stats: null, progress: 0, phase: "", autoClosed: 0,
   },
   findingFilter: "all",
+  healthMsg: "",
 };
 
 function tone(score) {
@@ -260,12 +420,14 @@ function escapeHtml(s) {
     .split('"').join("&" + "quot;");
 }
 function isProtected(pkg) {
-  if (!pkg) return true;
+  if (!pkg || !isValidPackage(pkg)) return true;
   if (CORE_PROTECT.has(pkg)) return true;
   if (pkg.indexOf("com.android.providers.") === 0) return true;
   var lower = pkg.toLowerCase();
   if (lower.indexOf("telecom") >= 0 || lower.indexOf("telephony") >= 0) return true;
   if (lower.indexOf("inputmethod") >= 0 || lower.indexOf("honeyboard") >= 0) return true;
+  if (lower.indexOf("magisk") >= 0 || lower.indexOf("knox") >= 0) return true;
+  if (lower.indexOf("permissioncontroller") >= 0) return true;
   return false;
 }
 function computeHealthScore() {
@@ -526,7 +688,7 @@ function runSafeScan() {
 }
 
 function forceClose(pkg, removeFromList) {
-  if (!pkg || isProtected(pkg)) return Promise.resolve(null);
+  if (!pkg || !isValidPackage(pkg) || isProtected(pkg)) return Promise.resolve(null);
   return new Promise(function (resolve) {
     try {
       var raw = typeof ApexNative.forceCloseApp === "function"
@@ -841,9 +1003,20 @@ function morePanel() {
       '<p class="faint">Force-close: ' + (state.hasRoot ? 'root am force-stop' : 'killBackgroundProcesses (grant root for full FORCE_CLOSE)') + '</p>' +
       '<a class="btn btn-secondary mt" href="' + GITHUB + '" target="_blank" rel="noreferrer" style="text-decoration:none">GitHub repository</a>' +
       '<p class="center mt"><a class="link" href="' + GITHUB + '/releases" target="_blank" rel="noreferrer">Releases on GitHub</a></p></div>' +
+    '<div class="card"><h2>Diagnostics</h2>' +
+      '<p class="muted">Uptime health for maintenance. Auto-refreshes every 12s while this screen is open.</p>' +
+      '<div class="grid2 mt" id="diagGrid">' +
+        '<div class="stat"><div class="t">Bridge</div><div class="v" style="font-size:.9rem">' + (isDemoBridge ? "Demo" : hasNative ? "Native" : "—") + '</div></div>' +
+        '<div class="stat"><div class="t">Root mode</div><div class="v" style="font-size:.9rem">' + escapeHtml(state.rootMode || "none") + '</div></div>' +
+        '<div class="stat"><div class="t">Free RAM</div><div class="v">' + (freePctOf(state.mem) != null ? freePctOf(state.mem) + "%" : "—") + '</div></div>' +
+        '<div class="stat"><div class="t">Temp root left</div><div class="v">' + (state.userspaceRemainingSec || 0) + "s</div></div>' +
+      '</div>' +
+      '<button class="btn btn-secondary mt" onclick="window.AC.pingHealth()">Run health ping</button>' +
+      (state.healthMsg ? '<p class="clean-status">' + escapeHtml(state.healthMsg) + '</p>' : '') +
+    '</div>' +
     '<div class="card"><h2>About</h2>' +
-      '<p class="muted">' + VERSION + '. RAM from /proc/meminfo MemAvailable. Optimize force-closes non-vital running apps. Core OS / telephony / keyboard protected.</p>' +
-      '<p class="faint mt">Native bridge: ' + (hasNative ? "connected" : "unavailable") + '</p></div>';
+      '<p class="muted">' + VERSION + ' (code ' + VERSION_CODE + '). Device Care RAM model · protected core packages · shell command allowlist. Optimize force-closes non-vital apps only.</p>' +
+      '<p class="faint mt">Native bridge: ' + (isDemoBridge ? "demo (preview)" : hasNative ? "connected" : "unavailable") + '</p></div>';
 }
 
 function render() {
@@ -862,9 +1035,17 @@ function render() {
   var mainEl = document.querySelector(".shell-main");
   if (mainEl) scrollTop = mainEl.scrollTop;
 
+  var pressure = freePctOf(state.mem);
+  var pressureCls = pressure == null ? "" : pressure < 18 ? "pressure-hot" : pressure < 35 ? "pressure-warn" : "pressure-ok";
+  var pressureLbl = pressure == null ? "" : pressure < 18 ? "RAM pressure high" : pressure < 35 ? "RAM moderate" : "RAM healthy";
+
   document.getElementById("app").innerHTML =
-    '<header><div class="row"><div><p class="eyebrow">Apex Care</p><h1>Device Control</h1></div>' +
-    '<div class="badge">' + VERSION + '</div></div></header>' +
+    (isDemoBridge ? '<div class="demo-banner">DEMO PREVIEW · simulated 12 GB Samsung stats · install APK for live device RAM</div>' : '') +
+    '<header><div class="row"><div><p class="eyebrow">Apex Care · Make RAM Great Again</p><h1>Device Control</h1></div>' +
+    '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">' +
+      '<div class="badge">' + VERSION + '</div>' +
+      (pressureLbl ? '<span class="faint ' + pressureCls + '" style="font-size:10px;font-weight:600">' + pressureLbl + '</span>' : '') +
+    '</div></div></header>' +
     '<div class="shell-main" id="shellMain"><main>' + body + '</main></div>' +
     '<nav class="shell-nav" aria-label="Primary"><div class="inner">' +
       tabs.map(function (t) {
@@ -933,15 +1114,34 @@ window.AC = {
     scanRunning();
     if (state.safe.ok) runSafeScan();
   },
+  pingHealth: function () {
+    if (!hasNative) return;
+    try {
+      if (typeof ApexNative.getHealthPing === "function") {
+        var h = JSON.parse(ApexNative.getHealthPing());
+        state.healthMsg = h.ok
+          ? ("OK · free " + h.freePct + "% · used " + h.usedPct + "% · " + (h.model || "") + " · sdk " + h.sdk
+            + (h.lowMemory ? " · LOW MEMORY" : ""))
+          : ("Ping failed: " + (h.error || "unknown"));
+        if (h.freePct != null) loadMemory();
+      } else {
+        loadMemory();
+        state.healthMsg = "Health ping API missing — memory refreshed.";
+      }
+    } catch (e) {
+      state.healthMsg = String(e.message || e);
+    }
+    render();
+  },
   grantRoot: function () {
     if (!hasNative || state.rootBusy) return;
     state.rootBusy = true;
-    state.rootMsg = "Contacting Magisk app + elevating session…";
+    state.rootMsg = isDemoBridge ? "Engaging demo TEMP ROOT…" : "Contacting Magisk su + elevating session…";
     render();
     setTimeout(function () {
       try {
         if (typeof ApexNative.requestRootAccess !== "function") {
-          state.rootMsg = "Bridge missing requestRootAccess — reinstall v1.0.0 APK.";
+          state.rootMsg = "Bridge missing requestRootAccess — reinstall latest Apex Care APK.";
           state.rootBusy = false;
           render();
           return;
@@ -983,6 +1183,16 @@ try {
   scanRunning();
   setTimeout(hideSplash, 1700);
   setTimeout(hideSplash, 4000);
+  // Keep free% fresh (Device Care style) without thrashing low-end SoCs
+  setInterval(function () {
+    if (state.closing || state.optimizing || state.rootBusy) return;
+    loadMemory();
+    if (state.userspaceRemainingSec > 0) {
+      state.userspaceRemainingSec = Math.max(0, state.userspaceRemainingSec - 12);
+    }
+    // Soft re-render home / more only (preserve scroll on apps)
+    if (state.tab === "home" || state.tab === "more") render();
+  }, 12000);
 } catch (err) {
   hideSplash();
   var el = document.getElementById("app");
