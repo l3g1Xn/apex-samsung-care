@@ -61,7 +61,10 @@ public final class MagiskRoot {
             "com.topjohnwu.magisk",
             "io.github.vvb2060.magisk",
             "io.github.huskydg.magisk",
-            "io.github.vvb2060.magisk.alpha"
+            "io.github.vvb2060.magisk.alpha",
+            "me.weishu.kernelsu",
+            "com.rifsxd.ksunext",
+            "me.bmax.apatch"
     };
 
     private static final MagiskRoot INSTANCE = new MagiskRoot();
@@ -277,7 +280,7 @@ public final class MagiskRoot {
     }
 
     /** Allow only narrow, known-safe root commands used by Apex Care. */
-    private static boolean isSafeRootCommand(String command) {
+    public static boolean isSafeRootCommand(String command) {
         String c = command.trim();
         if (c.isEmpty() || c.length() > 240) return false;
         // Disallow chaining / expansion / quoting

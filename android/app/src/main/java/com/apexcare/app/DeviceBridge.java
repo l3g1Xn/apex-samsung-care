@@ -74,7 +74,7 @@ public class DeviceBridge {
     @JavascriptInterface
     public String getMemoryStats() {
         try {
-            RamMetrics ram = RamMetrics.sample(context);
+            RamMetrics ram = RamMetrics.sampleThorough(context);
             return ram.toJson(hasRoot()).toString();
         } catch (Exception e) {
             return errorJson(e);
@@ -389,7 +389,7 @@ public class DeviceBridge {
     @JavascriptInterface
     public String getHealthPing() {
         try {
-            RamMetrics ram = RamMetrics.sample(context);
+            RamMetrics ram = RamMetrics.sampleFast(context);
             Runtime rt = Runtime.getRuntime();
             return new JSONObject()
                     .put("ok", true)

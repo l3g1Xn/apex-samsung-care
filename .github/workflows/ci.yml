@@ -13,14 +13,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - name: local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
@@ -46,10 +46,11 @@ jobs:
       - name: Guard — no shell injection helpers
         run: |
           set -euo pipefail
-          # force-stop must go through validated package API
           grep -q "forceStopPackage" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
           grep -q "isSafeRootCommand" android/app/src/main/java/com/apexcare/app/MagiskRoot.java
           grep -q "isValidPackage" android/app/src/main/java/com/apexcare/app/ProtectedPackages.java
-          # Must not re-enable universal file URL access
+          grep -q "sampleFast" android/app/src/main/java/com/apexcare/app/RamMetrics.java
+          grep -q "WebViewAssetLoader" android/app/src/main/java/com/apexcare/app/MainActivity.java
           ! grep -q "setAllowUniversalAccessFromFileURLs(true)" android/app/src/main/java/com/apexcare/app/MainActivity.java
+          ! grep -q "ACTION_CLEAN_RAM" android/app/src/main/AndroidManifest.xml
           echo "security guards OK"

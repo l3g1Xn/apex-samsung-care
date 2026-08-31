@@ -79,7 +79,7 @@ public class RamCleanerWidget extends AppWidgetProvider {
     static void updateWidget(Context context, AppWidgetManager manager, int appWidgetId, String btnOverride) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_ram_cleaner);
 
-        RamMetrics ram = RamMetrics.sample(context);
+        RamMetrics ram = RamMetrics.sampleFast(context);
         boolean rooted = hasRoot();
         views.setTextViewText(R.id.widget_title,
                 rooted ? "Apex Care · ROOT" : "Apex Care");
@@ -200,7 +200,7 @@ public class RamCleanerWidget extends AppWidgetProvider {
 
     private static long readAvailBytes(Context context) {
         try {
-            return RamMetrics.sample(context).availKb * 1024L;
+            return RamMetrics.sampleFast(context).availKb * 1024L;
         } catch (Exception e) {
             return 0;
         }

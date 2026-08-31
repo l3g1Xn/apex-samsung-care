@@ -41,6 +41,9 @@
         <package android:name="com.topjohnwu.magisk" />
         <package android:name="io.github.vvb2060.magisk" />
         <package android:name="io.github.huskydg.magisk" />
+        <package android:name="me.weishu.kernelsu" />
+        <package android:name="com.rifsxd.ksunext" />
+        <package android:name="me.bmax.apatch" />
     </queries>
 
     <application
@@ -57,6 +60,7 @@
         android:extractNativeLibs="true"
         android:usesCleartextTraffic="false"
         android:resizeableActivity="true"
+        android:enableOnBackInvokedCallback="true"
         tools:targetApi="34">
 
         <meta-data
@@ -102,8 +106,6 @@
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="android.appwidget.action.APPWIDGET_ENABLED" />
                 <action android:name="android.appwidget.action.APPWIDGET_DISABLED" />
-                <action android:name="com.apexcare.app.ACTION_CLEAN_RAM" />
-                <action android:name="com.apexcare.app.ACTION_REFRESH" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

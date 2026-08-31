@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="docs/assets/apex-care-hero.svg" alt="Apex Care — Make RAM Great Again · v1.0.1" width="420" />
+  <img src="docs/assets/apex-care-hero.svg" alt="Apex Care — Make RAM Great Again · v1.0.2" width="420" />
 </p>
 
 <h1 align="center">Apex Care</h1>
-<p align="center"><strong>v1.0.1 · Maintenance</strong><br/>
+<p align="center"><strong>v1.0.2 · Maintenance</strong><br/>
 <em>Make RAM Great Again</em></p>
 
 <p align="center">
@@ -26,7 +26,7 @@ Prior: [v1.0.0 Full Send](https://github.com/l3g1Xn/apex-samsung-care/releases/t
 2. Install the signed universal APK  
 3. Open → Grant Temporary Root (optional) · Optimize / Clean  
 
-Package `com.apexcare.app` · versionCode **19** · versionName **1.0.1** · minSdk **24** / targetSdk **34** · signed v1+v2+v3
+Package `com.apexcare.app` · latest APK versionCode **19** / **1.0.1** · source **20** / **1.0.2** · minSdk **24** / targetSdk **34** · signed v1+v2+v3
 
 ---
 
@@ -40,7 +40,19 @@ Package `com.apexcare.app` · versionCode **19** · versionName **1.0.1** · min
 | **Widget** | Free % primary · used / available GB · Clean action |
 | **Safe** | On-device heuristics · debuggable / outdated SDK signals |
 
-## v1.0.1 maintenance
+## v1.0.2 maintenance (source)
+
+Incremental — **not** a Full Send rebrand. Latest tagged APK remains [v1.0.1](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v1.0.1) until `v1.0.2` is tagged.
+
+- **ANR-safe RAM sample**: `sampleFast` on UI / widget (no `Thread.sleep`); thorough median stays on the JS/worker path
+- **WebViewAssetLoader** (no file-URL access) + 403 intercept for stray network
+- Protect list: Find My, Samsung Account, DeX, Wellbeing, KernelSU / APatch, launchers
+- Widget Clean/Refresh are **explicit-component** only (no implicit broadcast hijack)
+- Packaged UI: SVG nav (no emoji), pause 12s refresh when backgrounded, protect-list inspector
+- CI: extra security greps + Actions bumps; **does not** wipe prior releases
+- Marketing RAM tiers: 10 / 20 / 36 / 48 GB
+
+## v1.0.1 (published)
 
 - Shell **command allowlist** + package-name validation (no injection into `su -c`)
 - Expanded One UI **protect list** (telephony, input, Knox, Magisk, launcher, GMS)
@@ -78,4 +90,4 @@ See [SECURITY.md](SECURITY.md). Protect list covers core OS, telephony, keyboard
 ---
 
 **Not affiliated with Samsung, Google, or Magisk.**  
-**Apex Care v1.0.1 — Make RAM Great Again.**
+**Apex Care v1.0.2 — Make RAM Great Again.**
