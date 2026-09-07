@@ -14,6 +14,8 @@ Core premise stays fixed: **Make RAM Great Again** on Samsung One UI.
 - WebView fallback is `loadDataWithBaseURL`, never `file://`
 - Bulk Optimize / widget Clean skip `IMPORTANCE_VISIBLE` and above
 - Honor the user protect list (`USER_PREFS`) on every force-stop path
+- Auto-elevate (`ensureElevated`) before Optimize and Safe scan
+- Reclaim hanging processes with a second pass (`reclaimPackage`) — never SIGKILL
 - Keep **one** GitHub Release (the current tag). Older tags/APKs are dropped
 - Let Publish / CI **delete their own Actions logs** so signing detail does not stay public
 

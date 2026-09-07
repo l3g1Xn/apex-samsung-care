@@ -95,33 +95,29 @@ public class DeviceBridge {
             if (ProtectedPackages.isProtected(context, packageName)) {
                 return new JSONObject().put("ok", false).put("error", "protected").toString();
             }
+            MagiskRoot.Result elev = magisk.ensureElevated(context);
             boolean real = hasRealRoot();
             boolean elevated = hasRoot();
             String method = "kill_background";
-            if (real) {
-                // Only allow force-stop via validated package API (no free-form shell)
-                magisk.forceStopPackage(context, packageName);
-                method = "root_force_stop";
-            }
+            magisk.reclaimPackage(context, packageName);
+            if (real) method = "root_reclaim";
+            else if (elevated) method = "userspace_temp_kill";
             ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-            if (am != null) {
-                try {
-                    am.killBackgroundProcesses(packageName);
-                } catch (Exception ignored) {}
-                if (elevated && !real) {
-                    try {
-                        am.killBackgroundProcesses(packageName);
-                    } catch (Exception ignored) {}
-                    method = "userspace_temp_kill";
-                }
+            boolean hung = stillRunning(am, packageName);
+            if (hung) {
+                magisk.reclaimPackage(context, packageName);
+                hung = stillRunning(am, packageName);
+                if (!hung) method = method + "+retry";
             }
             JSONObject memJson = RamMetrics.sampleFast(context).toJson(elevated);
             return new JSONObject()
-                    .put("ok", true)
+                    .put("ok", !hung)
                     .put("hasRoot", elevated)
                     .put("realRoot", real)
                     .put("mode", magisk.getMode())
                     .put("method", method)
+                    .put("hung", hung)
+                    .put("elevated", elev.ok)
                     .put("mem", memJson)
                     .toString();
         } catch (Exception e) {
@@ -198,43 +194,79 @@ public class DeviceBridge {
         return "running";
     }
 
+    private static boolean stillRunning(ActivityManager am, String pkg) {
+        if (am == null || pkg == null) return false;
+        try {
+            List<ActivityManager.RunningAppProcessInfo> procs = am.getRunningAppProcesses();
+            if (procs == null) return false;
+            for (ActivityManager.RunningAppProcessInfo info : procs) {
+                if (info.pkgList == null) continue;
+                for (String p : info.pkgList) {
+                    if (pkg.equals(p)) return true;
+                }
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
     @JavascriptInterface
     public String optimizeDevice() {
         try {
+            MagiskRoot.Result elev = magisk.ensureElevated(context);
             ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
             int closed = 0;
+            int retried = 0;
             JSONArray closedPkgs = new JSONArray();
+            JSONArray hungPkgs = new JSONArray();
+            Set<String> attempted = new HashSet<>();
             if (am != null) {
                 List<ActivityManager.RunningAppProcessInfo> procs = am.getRunningAppProcesses();
                 if (procs != null) {
-                    Set<String> done = new HashSet<>();
                     for (ActivityManager.RunningAppProcessInfo info : procs) {
                         if (info.pkgList == null) continue;
-                        // Bulk optimize must not kill the app the user is looking at
                         if (info.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) {
                             continue;
                         }
                         for (String pkg : info.pkgList) {
-                            if (pkg == null || done.contains(pkg)) continue;
+                            if (pkg == null || attempted.contains(pkg)) continue;
                             if (!ProtectedPackages.isValidPackage(pkg)) continue;
                             if (ProtectedPackages.isProtected(context, pkg)) continue;
-                            done.add(pkg);
-                            JSONObject r = new JSONObject(forceCloseApp(pkg));
-                            if (r.optBoolean("ok")) {
-                                closed++;
-                                closedPkgs.put(pkg);
-                            }
+                            attempted.add(pkg);
+                            magisk.reclaimPackage(context, pkg);
+                            closed++;
+                            closedPkgs.put(pkg);
                         }
                     }
                 }
+                // Pass 2 — hanging / failed close (process still listed)
+                for (String pkg : attempted) {
+                    if (!stillRunning(am, pkg)) continue;
+                    magisk.reclaimPackage(context, pkg);
+                    retried++;
+                    if (stillRunning(am, pkg)
+                            && attempted.size() < 200) {
+                        hungPkgs.put(pkg);
+                    }
+                }
             }
+            try {
+                Runtime.getRuntime().gc();
+            } catch (Exception ignored) {}
             boolean elevated = hasRoot();
+            String method = hasRealRoot() ? "root_reclaim" : elevated ? "userspace_temp_kill" : "kill_background";
+            if (retried > 0) method = method + "+hang_retry";
             return new JSONObject()
                     .put("ok", true)
                     .put("closed", closed)
+                    .put("retried", retried)
+                    .put("hung", hungPkgs.length())
                     .put("closedPackages", closedPkgs)
+                    .put("hungPackages", hungPkgs)
                     .put("hasRoot", elevated)
-                    .put("method", hasRealRoot() ? "root_force_stop" : elevated ? "userspace_temp_kill" : "kill_background")
+                    .put("realRoot", hasRealRoot())
+                    .put("mode", magisk.getMode())
+                    .put("elevated", elev.ok)
+                    .put("method", method)
                     .put("mem", RamMetrics.sampleFast(context).toJson(elevated))
                     .toString();
         } catch (Exception e) {
@@ -245,21 +277,32 @@ public class DeviceBridge {
     @JavascriptInterface
     public String forceCloseIfOpen(String packagesJson) {
         try {
+            magisk.ensureElevated(context);
             JSONArray input = new JSONArray(packagesJson != null ? packagesJson : "[]");
-            // Cap batch size — prevent runaway loops from malformed UI payloads
             int max = Math.min(input.length(), 80);
             int closed = 0;
+            int hung = 0;
+            ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
             for (int i = 0; i < max; i++) {
                 String pkg = input.optString(i, "");
                 if (!ProtectedPackages.isValidPackage(pkg)) continue;
                 if (ProtectedPackages.isProtected(context, pkg)) continue;
-                JSONObject r = new JSONObject(forceCloseApp(pkg));
-                if (r.optBoolean("ok")) closed++;
+                magisk.reclaimPackage(context, pkg);
+                if (stillRunning(am, pkg)) {
+                    magisk.reclaimPackage(context, pkg);
+                    if (stillRunning(am, pkg)) hung++;
+                    else closed++;
+                } else {
+                    closed++;
+                }
             }
             return new JSONObject()
                     .put("ok", true)
                     .put("closed", closed)
+                    .put("hung", hung)
                     .put("hasRoot", hasRoot())
+                    .put("realRoot", hasRealRoot())
+                    .put("mode", magisk.getMode())
                     .put("mem", RamMetrics.sampleFast(context).toJson(hasRoot()))
                     .toString();
         } catch (Exception e) {
@@ -296,6 +339,7 @@ public class DeviceBridge {
     @JavascriptInterface
     public String runHeuristicScan() {
         try {
+            MagiskRoot.Result elev = magisk.ensureElevated(context);
             PackageManager pm = context.getPackageManager();
             List<ApplicationInfo> apps = pm.getInstalledApplications(0);
             int user = 0, system = 0, debuggable = 0, outdated = 0, sideloaded = 0;
@@ -328,7 +372,6 @@ public class DeviceBridge {
                         }
                     }
                 } catch (Exception ignored) {}
-                // Rough sideload heuristic: non-system, non-Play installer when available
                 try {
                     if ((ai.flags & ApplicationInfo.FLAG_SYSTEM) == 0) {
                         String installer = null;
@@ -343,7 +386,55 @@ public class DeviceBridge {
                     }
                 } catch (Exception ignored) {}
             }
-            int score = Math.max(35, 96 - findings.length() * 3 - Math.min(15, outdated / 4));
+            // Cached RAM blobs / leftover processes (needs running list + elevation)
+            int blobs = 0;
+            ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+            if (am != null) {
+                List<ActivityManager.RunningAppProcessInfo> procs = am.getRunningAppProcesses();
+                if (procs != null) {
+                    Set<String> seen = new HashSet<>();
+                    for (ActivityManager.RunningAppProcessInfo info : procs) {
+                        if (info.pkgList == null) continue;
+                        if (info.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) {
+                            continue;
+                        }
+                        for (String pkg : info.pkgList) {
+                            if (pkg == null || seen.contains(pkg)) continue;
+                            if (!ProtectedPackages.isValidPackage(pkg)) continue;
+                            if (ProtectedPackages.isProtected(context, pkg)) continue;
+                            seen.add(pkg);
+                            long pssKb = 0;
+                            try {
+                                Debug.MemoryInfo[] mis = am.getProcessMemoryInfo(new int[]{info.pid});
+                                if (mis != null && mis.length > 0) pssKb = mis[0].getTotalPss();
+                            } catch (Exception ignored) {}
+                            long ramMb = Math.round(pssKb / 1024.0);
+                            boolean cached = info.importance >= 400;
+                            if (cached && ramMb >= 80 && findings.length() < 40) {
+                                blobs++;
+                                findings.put(new JSONObject()
+                                        .put("title", "Cached RAM blob")
+                                        .put("detail", ramMb + " MB still resident after going to cache.")
+                                        .put("severity", ramMb >= 250 ? "high" : "medium")
+                                        .put("kind", "ram_blob")
+                                        .put("packageName", pkg)
+                                        .put("running", true));
+                            } else if (info.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE
+                                    && ramMb >= 180 && findings.length() < 40) {
+                                blobs++;
+                                findings.put(new JSONObject()
+                                        .put("title", "Heavy background service")
+                                        .put("detail", ramMb + " MB service — candidate for reclaim on Optimize.")
+                                        .put("severity", "medium")
+                                        .put("kind", "service_blob")
+                                        .put("packageName", pkg)
+                                        .put("running", true));
+                            }
+                        }
+                    }
+                }
+            }
+            int score = Math.max(35, 96 - findings.length() * 3 - Math.min(15, outdated / 4) - Math.min(10, blobs));
             return new JSONObject()
                     .put("ok", true)
                     .put("score", score)
@@ -358,9 +449,13 @@ public class DeviceBridge {
                     .put("findingCount", findings.length())
                     .put("malwareSignals", 0)
                     .put("puaSignals", 0)
+                    .put("ramBlobs", blobs)
                     .put("findings", findings)
                     .put("openRiskPackages", new JSONArray())
                     .put("hasRoot", hasRoot())
+                    .put("realRoot", hasRealRoot())
+                    .put("mode", magisk.getMode())
+                    .put("elevated", elev.ok)
                     .put("scannedAt", System.currentTimeMillis())
                     .toString();
         } catch (Exception e) {
