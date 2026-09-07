@@ -27,7 +27,7 @@ v1.0.4 is the **only** GitHub Release. Older APKs and tags are not published.
 3. If Play Protect says Uncommon: More details → Install anyway
 4. Open, Grant Temporary Root (optional), Optimize / Clean
 
-Package `com.apexcare.app` - versionCode **26** / **1.0.4** - minSdk **21** (Galaxy S6+) / targetSdk **34** - signed v1+v2+v3
+Package `com.apexcare.app` - versionCode **27** / **1.0.4** - minSdk **21** (Galaxy S6+) / targetSdk **34** - signed v1+v2+v3
 
 ---
 
@@ -55,7 +55,7 @@ Incremental - **not** a Full Send rebrand. **Uninstall older Apex Care first** �
 - Optimize / batch close sample RAM with `sampleFast` (no 7x sleep after a bulk pass)
 - PSS lookups capped at 80 running packages for low-RAM A-series
 - Shell command allowlist + package-name validation (no injection into `su -c`)
-- WebView **offline** via `WebViewAssetLoader`; fallback is `loadDataWithBaseURL` (never `file://`)
+- WebView is a **platform Activity** (no AppCompat / Emoji2 / Jetpack WebKit) loading `file:///android_asset` — fallback `loadDataWithBaseURL`
 - First-open HW RAM scan is sleep-free on the UI thread; widget Clean runs off the main looper
 
 ## Magisk + Temporary Root

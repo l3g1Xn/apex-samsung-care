@@ -47,12 +47,11 @@ jobs:
           grep -q "isSafeRootCommand" android/app/src/main/java/com/apexcare/app/MagiskRoot.java
           grep -q "isValidPackage" android/app/src/main/java/com/apexcare/app/ProtectedPackages.java
           grep -q "sampleFast" android/app/src/main/java/com/apexcare/app/RamMetrics.java
-          grep -q "WebViewAssetLoader" android/app/src/main/java/com/apexcare/app/MainActivity.java
+          grep -q "file:///android_asset/www/index.html" android/app/src/main/java/com/apexcare/app/MainActivity.java
           grep -q "loadDataWithBaseURL" android/app/src/main/java/com/apexcare/app/MainActivity.java
           grep -q "scanUsableRamKbFast" android/app/src/main/java/com/apexcare/app/RamMetrics.java
           grep -q "CLEAN_EXEC" android/app/src/main/java/com/apexcare/app/RamCleanerWidget.java
           grep -q "USER_PREFS" android/app/src/main/java/com/apexcare/app/ProtectedPackages.java
-          grep -q "IMPORTANCE_VISIBLE" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
           grep -q "addUserProtect" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
           grep -q "ensureElevated" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
           grep -q "reclaimPackage" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
@@ -62,8 +61,12 @@ jobs:
           grep -q "extractNativeLibs=\"true\"" android/app/src/main/AndroidManifest.xml
           grep -q "android.permission.INTERNET" android/app/src/main/AndroidManifest.xml
           grep -q "ApexApplication" android/app/src/main/AndroidManifest.xml
-          grep -q "loadDataWithBaseURL" android/app/src/main/java/com/apexcare/app/MainActivity.java
+          grep -q "attachBaseContext" android/app/src/main/java/com/apexcare/app/ApexApplication.java
+          grep -q "extends Activity" android/app/src/main/java/com/apexcare/app/MainActivity.java
+          ! grep -q "appcompat" android/app/build.gradle
+          ! grep -q "androidx.webkit" android/app/src/main/java/com/apexcare/app/MainActivity.java
           ! grep -q "probeQuick" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
+          ! grep -q "IMPORTANCE_SERVICE" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
           ! grep -q "setAllowUniversalAccessFromFileURLs(true)" android/app/src/main/java/com/apexcare/app/MainActivity.java
           ! grep -q "ACTION_CLEAN_RAM" android/app/src/main/AndroidManifest.xml
           ! grep -R -F 'kill -9' android/app/src/main/java

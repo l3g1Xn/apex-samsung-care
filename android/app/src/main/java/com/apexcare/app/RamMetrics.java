@@ -194,7 +194,7 @@ public final class RamMetrics {
         SharedPreferences sp = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         long cached = sp.getLong(KEY_USABLE_KB, 0L);
         if (cached > 0) return cached;
-        return scanUsableRamKb(app);
+        return scanUsableRamKbFast(app);
     }
 
     /** Single-shot usable RAM — never sleeps. Safe on the main thread. */

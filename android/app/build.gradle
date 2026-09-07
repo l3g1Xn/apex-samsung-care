@@ -19,9 +19,9 @@ def resolvedStore = rootProject.file(storeFilePath)
 if (!resolvedStore.exists()) {
     resolvedStore = demoStoreFile
 }
-def storePass = keystoreProps.getProperty("storePassword", "ApexCare26Sideload")
+def storePass = keystoreProps.getProperty("storePassword", "ApexCare27Sideload")
 def keyAliasName = keystoreProps.getProperty("keyAlias", "apexcare")
-def keyPass = keystoreProps.getProperty("keyPassword", "ApexCare26Sideload")
+def keyPass = keystoreProps.getProperty("keyPassword", "ApexCare27Sideload")
 
 android {
     namespace "com.apexcare.app"
@@ -32,7 +32,7 @@ android {
         // Galaxy S6 / S7 flagships (Lollipop 5.0) through current One UI
         minSdk 21
         targetSdk 34
-        versionCode 26
+        versionCode 27
         versionName "1.0.4"
 
         // Samsung flagships are ARM. x86 in a phone APK is a Play Protect PUP heuristic.
@@ -40,7 +40,7 @@ android {
             abiFilters "armeabi-v7a", "arm64-v8a"
         }
 
-        vectorDrawables.useSupportLibrary = true
+        vectorDrawables.useSupportLibrary = false
 
         resConfigs "en"
     }
@@ -120,14 +120,5 @@ android {
 }
 
 dependencies {
-    implementation "androidx.appcompat:appcompat:1.6.1"
-    implementation "androidx.webkit:webkit:1.11.0"
-}
-
-configurations.configureEach {
-    resolutionStrategy {
-        force "org.jetbrains.kotlin:kotlin-stdlib:1.8.22"
-        force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22"
-        force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22"
-    }
+    // Zero Jetpack. AppCompat / WebKit / Emoji2 / Startup crash on a slice of One UI SKUs.
 }
