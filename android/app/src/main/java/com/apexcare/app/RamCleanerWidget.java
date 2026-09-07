@@ -157,6 +157,20 @@ public class RamCleanerWidget extends AppWidgetProvider {
                     }
                 }
             }
+            // Hang retry for leftover cached processes
+            if (procs != null) {
+                for (ActivityManager.RunningAppProcessInfo p : procs) {
+                    if (p.pkgList == null) continue;
+                    if (p.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) continue;
+                    for (String pkg : p.pkgList) {
+                        if (!seen.contains(pkg)) continue;
+                        if (!ProtectedPackages.isValidPackage(pkg)) continue;
+                        if (ProtectedPackages.isProtected(context, pkg)) continue;
+                        magisk.reclaimPackage(context, pkg, true);
+                    }
+                }
+            }
+            magisk.reclaimSystem(context);
             System.gc();
             try {
                 Thread.sleep(80);

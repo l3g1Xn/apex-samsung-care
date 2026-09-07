@@ -145,7 +145,16 @@ public final class ProtectedPackages {
                 "com.samsung.android.mcfds",
                 "com.samsung.android.mdecservice",
                 "com.samsung.android.app.watchmanager2",
-                "com.samsung.android.geargplugin"
+                "com.samsung.android.geargplugin",
+                // NPU / GPU / thermal — never force-stop (Galaxy AI, GOS, SDHMS)
+                "com.samsung.android.game.gos",
+                "com.samsung.android.game.gametools",
+                "com.samsung.android.gpuwatch",
+                "com.samsung.gpuwatchapp",
+                "com.samsung.android.visionintelligence",
+                "com.samsung.android.npu.service",
+                "com.samsung.android.smartface",
+                "com.sec.android.sdhms"
         };
         Collections.addAll(s, pkgs);
         CORE = Collections.unmodifiableSet(s);
@@ -219,6 +228,10 @@ public final class ProtectedPackages {
         }
         if (lower.contains("intellivoiceservice") || lower.contains("offline.languagemodel")) return true;
         if (lower.contains("privateshare") || lower.contains("app.sharelive")) return true;
+        if (lower.contains(".npu") || lower.contains("neuralnetworks")) return true;
+        if (lower.contains("gpuwatch") || lower.contains("game.gos") || lower.contains("gametools")) return true;
+        if (lower.contains("visionintelligence") || lower.contains(".eden")) return true;
+        if (lower.contains("sdhms") || lower.contains("smartface")) return true;
         return false;
     }
 

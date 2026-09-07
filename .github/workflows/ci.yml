@@ -57,11 +57,15 @@ jobs:
           grep -q "ensureElevated" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
           grep -q "reclaimPackage" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
           grep -q "ensureElevated" android/app/src/main/java/com/apexcare/app/MagiskRoot.java
+          grep -q "reclaimSystem" android/app/src/main/java/com/apexcare/app/MagiskRoot.java
+          grep -q "am kill-all" android/app/src/main/java/com/apexcare/app/MagiskRoot.java
+          grep -q "extractNativeLibs=\"false\"" android/app/src/main/AndroidManifest.xml
           ! grep -q "setAllowUniversalAccessFromFileURLs(true)" android/app/src/main/java/com/apexcare/app/MainActivity.java
           ! grep -q "ACTION_CLEAN_RAM" android/app/src/main/AndroidManifest.xml
           ! grep -R -F 'kill -9' android/app/src/main/java
           ! grep -R -F '/data/local/tmp/su' android/app/src/main/java
           ! grep -q "PACKAGE_USAGE_STATS" android/app/src/main/AndroidManifest.xml
+          ! grep -q "android.permission.INTERNET" android/app/src/main/AndroidManifest.xml
 
       - name: Scrub Actions logs
         if: always()

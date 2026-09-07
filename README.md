@@ -26,7 +26,7 @@ v1.0.4 is the **only** GitHub Release. Older APKs and tags are not published.
 2. Install the signed universal APK
 3. Open, Grant Temporary Root (optional), Optimize / Clean
 
-Package `com.apexcare.app` - versionCode **23** / **1.0.4** - minSdk **24** / targetSdk **34** - signed v1+v2+v3
+Package `com.apexcare.app` - versionCode **24** / **1.0.4** - minSdk **24** / targetSdk **34** - signed v1+v2+v3
 
 ---
 

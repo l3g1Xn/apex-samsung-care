@@ -212,7 +212,7 @@
 <div class="app" id="app"></div>
 <script>
 const VERSION = "v1.0.4";
-const VERSION_CODE = 23;
+const VERSION_CODE = 24;
 const PACKAGE_ID = "com.apexcare.app";
 const GITHUB = "https://github.com/l3g1Xn/apex-samsung-care";
 
@@ -321,7 +321,8 @@ const GITHUB = "https://github.com/l3g1Xn/apex-samsung-care";
       procs = keep2;
       return JSON.stringify({ ok: true, closed: closed, retried: retried, hung: hungPackages.length,
         closedPackages: closedPackages, hungPackages: hungPackages, hasRoot: hasRoot, realRoot: realRoot,
-        elevated: true, mode: mode, method: "demo_root_reclaim+hang_retry", mem: mem() });
+        elevated: true, mode: mode, systemReclaim: true, npuSafe: true,
+        method: "demo_root_reclaim+hang_retry+cpu_npu_trim", mem: mem() });
     },
     forceCloseIfOpen: function (json) {
       var arr = [];
@@ -337,7 +338,7 @@ const GITHUB = "https://github.com/l3g1Xn/apex-samsung-care";
     },
     scanInstalledApps: function () { return this.getRunningProcesses(); },
     runHeuristicScan: function () {
-      if (!hasRoot) this.requestRootAccess();
+      this.requestRootAccess();
       var findings = [];
       var blobs = 0;
       procs.forEach(function (p) {
@@ -406,6 +407,10 @@ const CORE_PROTECT = new Set([
   "com.samsung.android.knox.kpu", "com.samsung.android.app.contacts",
   "com.android.contacts", "com.samsung.android.calendar",
   "com.sec.android.app.clockpackage", "com.google.android.apps.nexuslauncher",
+  "com.samsung.android.game.gos", "com.samsung.android.game.gametools",
+  "com.samsung.android.gpuwatch", "com.samsung.gpuwatchapp",
+  "com.samsung.android.visionintelligence", "com.samsung.android.npu.service",
+  "com.samsung.android.smartface", "com.sec.android.sdhms",
   PACKAGE_ID
 ]);
 
@@ -489,6 +494,10 @@ function isProtected(pkg) {
   if (lower.indexOf("samsungpay") >= 0 || lower.indexOf(".spay") >= 0) return true;
   if (lower.indexOf("shealth") >= 0 || lower.indexOf("heartplugin") >= 0) return true;
   if (lower.indexOf("galaxyregistry") >= 0) return true;
+  if (lower.indexOf(".npu") >= 0 || lower.indexOf("neuralnetworks") >= 0) return true;
+  if (lower.indexOf("gpuwatch") >= 0 || lower.indexOf("game.gos") >= 0) return true;
+  if (lower.indexOf("visionintelligence") >= 0 || lower.indexOf(".eden") >= 0) return true;
+  if (lower.indexOf("sdhms") >= 0 || lower.indexOf("smartface") >= 0) return true;
   return false;
 }
 function computeHealthScore() {
@@ -667,7 +676,7 @@ function runSafeScan() {
   state.safe.autoClosed = 0;
   render();
   try {
-    if (!state.hasRoot && typeof ApexNative.requestRootAccess === "function") {
+    if (typeof ApexNative.requestRootAccess === "function") {
       var sg = JSON.parse(ApexNative.requestRootAccess());
       state.hasRoot = !!(sg.hasRoot || sg.ok);
       state.realRoot = !!sg.realRoot;
@@ -786,12 +795,13 @@ function runOptimize(label) {
   render();
 
   var phases = [
-    [140, "Engaging temp / Magisk root…"],
-    [280, "Official killBackgroundProcesses…"],
-    [420, "Root force-stop + stop-app + compact…"],
-    [560, "Retry hanging / failed closes…"],
-    [700, "Trim leftover RAM blobs…"],
-    [840, "Refreshing Device Care RAM…"]
+    [120, "Engaging temp / Magisk root…"],
+    [240, "Official killBackgroundProcesses…"],
+    [380, "Root force-stop + stop-app + compact…"],
+    [520, "Retry hanging / failed closes…"],
+    [660, "Leftover RAM blobs + CPU kill-all…"],
+    [780, "NPU-safe GPU compact / trim…"],
+    [900, "Refreshing Device Care RAM…"]
   ];
   var pi = 0;
   function nextPhase() {
@@ -813,7 +823,7 @@ function runOptimize(label) {
     var res = null;
     try {
       if (hasNative && typeof ApexNative.optimizeDevice === "function") {
-        if (!state.hasRoot && typeof ApexNative.requestRootAccess === "function") {
+        if (typeof ApexNative.requestRootAccess === "function") {
           try {
             var g = JSON.parse(ApexNative.requestRootAccess());
             state.hasRoot = !!(g.hasRoot || g.ok);
@@ -934,7 +944,7 @@ function home() {
     '<button class="stat" onclick="window.AC.tab(\'safe\')" style="text-align:left;width:100%">' +
       '<div class="t">Safe score</div>' +
       '<div class="v">' + (safeScore != null ? safeScore : "—") + '</div>' +
-      '<div class="s">' + (state.safe.ok ? (malware + " malware · " + pua + " PUA" + (state.safe.autoClosed ? " · auto-closed " + state.safe.autoClosed : "")) : "Tap to scan") + '</div>' +
+      '<div class="s">' + (state.safe.ok ? (malware + " blobs · " + pua + " extra" + (state.safe.autoClosed ? " · auto-closed " + state.safe.autoClosed : "")) : "Tap to scan") + '</div>' +
       '<div class="bar"><i style="width:' + (safeScore != null ? safeScore : 0) + '%"></i></div>' +
     '</button>' +
     '<div class="card">' +
@@ -968,7 +978,7 @@ function safePanel() {
     '<div class="card center">' +
       (s.score != null ? ring(s.score, "Safe", sub)
         : '<div class="ring-wrap"><div class="ring" style="display:flex;align-items:center;justify-content:center"><div class="mid"><div class="lbl">Safe</div><div class="sub">Local heuristics</div></div></div></div>') +
-      '<p class="muted" style="margin:.5rem 0 0">On-device malware / PUA scan. Open threats can be force-closed automatically.</p>' +
+      '<p class="muted" style="margin:.5rem 0 0">Device Care heuristics: RAM blobs, leftover processes, install source. Running high/medium items can be force-closed.</p>' +
       '<div class="toggle-row mt">' +
         '<div style="text-align:left"><div style="font-size:13px;font-weight:500">Auto-close open risks</div>' +
         '<div class="faint">Force-close high/medium findings that are running</div></div>' +
@@ -986,8 +996,8 @@ function safePanel() {
       '<div class="grid2">' +
         '<div class="stat"><div class="t">Packages</div><div class="v">' + s.stats.packages + '</div><div class="s">' + s.stats.userApps + ' user · ' + s.stats.systemApps + ' system</div></div>' +
         '<div class="stat"><div class="t">Signals</div><div class="v">' + s.stats.findingCount + '</div><div class="s">' + s.stats.sideloaded + ' sideload · ' + s.stats.debuggable + ' debug</div></div>' +
-        '<div class="stat"><div class="t">Malware signals</div><div class="v" style="color:var(--danger)">' + (s.stats.malwareSignals || 0) + '</div><div class="s">Weaponized perms</div></div>' +
-        '<div class="stat"><div class="t">PUA signals</div><div class="v" style="color:var(--warn)">' + (s.stats.puaSignals || 0) + '</div><div class="s">Fake cleaners</div></div>' +
+        '<div class="stat"><div class="t">RAM blobs</div><div class="v" style="color:var(--warn)">' + (s.stats.ramBlobs || s.stats.malwareSignals || 0) + '</div><div class="s">Cached leftovers</div></div>' +
+        '<div class="stat"><div class="t">Sideload</div><div class="v">' + (s.stats.sideloaded || 0) + '</div><div class="s">Non-Play installers</div></div>' +
       '</div>'
     ) : '') +
     (s.ok ? (
@@ -1105,10 +1115,10 @@ function morePanel() {
       '<p class="muted">Core OS, telephony, input, Knox, Magisk/KernelSU, launchers, and Apex itself are never force-stopped. ' + CORE_PROTECT.size + ' exact packages + prefix rules.</p>' +
       '<p class="mono mt" style="max-height:7rem;overflow:auto">' + Array.from(CORE_PROTECT).slice(0, 24).join(" · ") + ' …</p></div>' +
     '<div class="card"><h2>Play Protect</h2>' +
-      '<p class="muted">This is a <strong style="color:var(--fg)">GitHub sideload</strong> signed with the demo cert. Play Protect often labels first-seen sideload certs as <em>Uncommon</em> — that is not a malware verdict. Apex Care does not phone home, does not use SIGKILL, and only force-stops allowlisted non-protected packages after you start Optimize or Safe scan.</p>' +
+      '<p class="muted">This is a <strong style="color:var(--fg)">GitHub sideload</strong> signed with the demo cert. Play Protect often labels first-seen sideload certs as <em>Uncommon</em> — that is not a malware verdict. Apex Care has no INTERNET permission, does not phone home, does not use SIGKILL, and only force-stops allowlisted non-protected packages after you start Optimize or Safe scan.</p>' +
       '<p class="faint mt">If Play Protect blocks install: More details → Install anyway. Do not turn scanning off permanently.</p></div>' +
     '<div class="card"><h2>About</h2>' +
-      '<p class="muted">' + VERSION + ' (code ' + VERSION_CODE + '). Device Care RAM model · protected core packages · root command allowlist. Optimize auto-engages TEMP ROOT, force-stops non-vital apps, retries hanging processes, then compact/trim.</p>' +
+      '<p class="muted">' + VERSION + ' (code ' + VERSION_CODE + '). Device Care RAM model · protected core + NPU/GPU. Optimize and Safe scan auto-engage TEMP ROOT every run, retry hanging closes, then CPU kill-all / compact-trim (NPU HALs stay up).</p>' +
       '<p class="faint mt">Native bridge: ' + (isDemoBridge ? "demo (preview)" : hasNative ? "connected" : "unavailable") + '</p></div>';
 }
 

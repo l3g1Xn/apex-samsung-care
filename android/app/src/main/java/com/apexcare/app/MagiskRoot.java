@@ -132,7 +132,8 @@ public final class MagiskRoot {
             return ok(MODE_MAGISK_SU, getSuPath(), "Magisk su already granted.");
         }
         if (isUserspaceActive()) {
-            return ok(MODE_USERSPACE, getSuPath(), "Userspace TEMP ROOT already active.");
+            userspaceUntil.set(System.currentTimeMillis() + USERSPACE_TTL_MS);
+            return ok(MODE_USERSPACE, getSuPath(), "Userspace TEMP ROOT refreshed for this run (30 min).");
         }
         refreshMagiskAppInfo(app);
         String pkg = magiskPkg.get();
@@ -310,6 +311,13 @@ public final class MagiskRoot {
      * pages the kernel already marked reclaimable.
      */
     public boolean reclaimPackage(Context context, String packageName) {
+        return reclaimPackage(context, packageName, false);
+    }
+
+    /**
+     * @param hung true = failed-close retry: compact full + COMPLETE trim
+     */
+    public boolean reclaimPackage(Context context, String packageName, boolean hung) {
         if (!ProtectedPackages.isValidPackage(packageName)) return false;
         if (ProtectedPackages.isProtected(context, packageName)) return false;
         boolean any = false;
@@ -326,14 +334,32 @@ public final class MagiskRoot {
             any = forceStopPackage(context, packageName) || any;
             any = run("am kill " + packageName) || any;
             any = run("cmd activity stop-app " + packageName) || any;
-            any = run("cmd activity compact " + packageName + " some") || any;
-            any = run("am send-trim-memory " + packageName + " RUNNING_CRITICAL") || any;
+            String compact = hung ? "full" : "some";
+            String trim = hung ? "COMPLETE" : "RUNNING_CRITICAL";
+            any = run("cmd activity compact " + packageName + " " + compact) || any;
+            any = run("am send-trim-memory " + packageName + " " + trim) || any;
         } else if (isUserspaceActive() && context != null) {
             try {
                 ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
                 if (am != null) am.killBackgroundProcesses(packageName);
             } catch (Exception ignored) {}
         }
+        return any;
+    }
+
+    /**
+     * After per-package reclaim: drop leftover empty cached processes (CPU),
+     * never SIGKILL, never touch NPU/GPU HALs (those packages are protected).
+     */
+    public boolean reclaimSystem(Context context) {
+        boolean any = false;
+        if (isRealRoot()) {
+            any = run("am kill-all") || any;
+        }
+        try {
+            Runtime.getRuntime().gc();
+            System.runFinalization();
+        } catch (Exception ignored) {}
         return any;
     }
 
@@ -353,6 +379,7 @@ public final class MagiskRoot {
             }
         }
         if ("id".equals(c)) return true;
+        if ("am kill-all".equals(c)) return true;
         if (c.startsWith("am force-stop ")) {
             return ProtectedPackages.isValidPackage(c.substring("am force-stop ".length()).trim());
         }

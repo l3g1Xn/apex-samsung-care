@@ -16,8 +16,7 @@
         android:anyDensity="true"
         android:resizeable="true" />
 
-    <!-- INTERNET kept for Magisk detection paths / future update checks; WebView network loads are blocked in code -->
-    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- No INTERNET: WebView is offline (asset loader + 403 interceptor). Magisk probe is local. -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
@@ -54,7 +53,7 @@
         android:theme="@style/Theme.ApexCare"
         android:hardwareAccelerated="true"
         android:largeHeap="true"
-        android:extractNativeLibs="true"
+        android:extractNativeLibs="false"
         android:usesCleartextTraffic="false"
         android:resizeableActivity="true"
         android:enableOnBackInvokedCallback="true"
