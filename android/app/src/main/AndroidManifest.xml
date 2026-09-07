@@ -16,8 +16,9 @@
         android:anyDensity="true"
         android:resizeable="true" />
 
-    <!-- INTERNET: Samsung WebView/Chromium throws SecurityException on open without it.
-         Real fetches are blocked (blockNetworkLoads + interceptor 403). -->
+    <!-- INTERNET: Samsung WebView/Chromium throws SecurityException on open without it
+         on some One UI SKUs even for file:///android_asset. Real fetches blocked
+         (blockNetworkLoads=true). -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
     <!-- Broad package-visibility permission omitted (Play Protect PUP surface). Launcher queries cover user apps. -->

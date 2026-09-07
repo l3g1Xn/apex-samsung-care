@@ -1,6 +1,6 @@
 # Apex Care - Android (v1.0.4)
 
-versionCode **26** - package `com.apexcare.app` - minSdk **21** / targetSdk **34**
+versionCode **27** - package `com.apexcare.app` - minSdk **21** / targetSdk **34**
 
 ## Signed universal APK
 

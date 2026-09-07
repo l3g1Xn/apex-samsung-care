@@ -33,13 +33,13 @@ It does **not** phone home, upload package lists, or auto-root a stock device.
 - **Optimize / Safe scan auto-engage TEMP ROOT** (or Magisk su if already granted) before closing or scanning
 - **Hanging-process retry** (pass 2 compact-full + COMPLETE trim, pass 3 leftover blobs) then `am kill-all` for empty cached CPU (NPU/GPU HALs stay protected)
 - **Dropped unused `PACKAGE_USAGE_STATS`** and persistence `keep_process_alive` metadata (Play Protect surface)
-- **No `INTERNET` permission** (offline WebView; Magisk probe is local files) and `extractNativeLibs=false` (no native .so)
 - **No `su` exec on launch** (RAM ticks / widget only read in-process TEMP ROOT / Magisk session flags). Superuser handshake runs only after Grant Root / Optimize / Safe scan.
-- **`QUERY_ALL_PACKAGES` is not requested** (Play Protect PUP surface). `INTERNET` is declared because Samsung WebView crashes on open without it; Chromium network fetches are intercepted 403.
-- **WebView locked down**: `WebViewAssetLoader` (no file-URL access), no universal file access, mixed content never, stray HTTPS 403
+- **`QUERY_ALL_PACKAGES` is not requested** (Play Protect PUP surface). `INTERNET` is declared because Samsung WebView crashes on open without it; Chromium fetches are `blockNetworkLoads=true`.
+- **`extractNativeLibs=true`** (no bundled .so — ARM filter only)
+- **WebView locked down**: platform `file:///android_asset` (no Jetpack WebKit), `blockNetworkLoads=true`, no universal file access, mixed content never
 - **Widget custom actions** are explicit-component only (not exported as implicit broadcasts)
 - **UI-thread RAM sample is sleep-free** including first-open HW scan (`scanUsableRamKbFast`)
-- **WebView fallback never uses file://** (`loadDataWithBaseURL` on the asset-loader origin)
+- **No AppCompat / Emoji2 / Startup providers** (crash-on-open on a slice of One UI / no-GMS SKUs)
 - **Widget Clean is off the main looper**
 - **Backup disabled** (`allowBackup=false`, data extraction rules exclude prefs)
 - **Cleartext traffic disabled**
@@ -53,11 +53,11 @@ Please do **not** open PRs that demonstrate live RCE payloads against end-user d
 
 ## Sideload signing
 
-Release APKs use a **sideload keystore** committed for CI (rotated 2026-09-07, `ApexCare26Sideload`). Treat it as public. **Uninstall older Apex Care before installing** — Android will not upgrade across certificates.
+Release APKs use a **sideload keystore** committed for CI (rotated 2026-09-07, `ApexCare27Sideload`). Treat it as public. **Uninstall older Apex Care before installing** — Android will not upgrade across certificates.
 
 Play Protect often labels a first-seen sideload certificate as **Uncommon / PUP**. That is not a malware verdict. This APK is not listed on Google Play. If Play Protect blocks install, use **More details → Install anyway**. Do not disable Play Protect permanently.
 
-`QUERY_ALL_PACKAGES` is not requested (Play Protect PUP surface). `INTERNET` is declared because Samsung WebView crashes on open without it; Chromium network fetches are intercepted 403.
+`QUERY_ALL_PACKAGES` is not requested (Play Protect PUP surface). `INTERNET` is declared because Samsung WebView crashes on open without it; Chromium fetches are blocked (`blockNetworkLoads=true`).
 
 ## Magisk / root
 

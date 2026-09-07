@@ -151,7 +151,7 @@ public class RamCleanerWidget extends AppWidgetProvider {
             if (procs != null) {
                 for (ActivityManager.RunningAppProcessInfo p : procs) {
                     if (p.pkgList == null) continue;
-                    if (p.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) {
+                    if (p.importance <= 200) {
                         continue;
                     }
                     for (String pkg : p.pkgList) {
@@ -168,7 +168,7 @@ public class RamCleanerWidget extends AppWidgetProvider {
             if (procs != null) {
                 for (ActivityManager.RunningAppProcessInfo p : procs) {
                     if (p.pkgList == null) continue;
-                    if (p.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) continue;
+                    if (p.importance <= 200) continue;
                     for (String pkg : p.pkgList) {
                         if (!seen.contains(pkg)) continue;
                         if (!ProtectedPackages.isValidPackage(pkg)) continue;

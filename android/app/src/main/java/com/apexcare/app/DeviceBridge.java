@@ -75,9 +75,11 @@ public class DeviceBridge {
     @JavascriptInterface
     public String getMemoryStats() {
         try {
-            RamMetrics ram = RamMetrics.sampleThorough(context);
+            // Fast path only — thorough/sleep samples stall Samsung WebView's JS
+            // renderer on first paint and look like a crash-on-open.
+            RamMetrics ram = RamMetrics.sampleFast(context);
             return ram.toJson(hasRoot()).toString();
-        } catch (Exception e) {
+        } catch (Throwable e) {
             return errorJson(e);
         }
     }
@@ -189,10 +191,12 @@ public class DeviceBridge {
     }
 
     private static String importanceLabel(int importance) {
-        if (importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) return "foreground";
-        if (importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) return "visible";
-        if (importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE) return "service";
-        if (importance <= 400) return "cached"; // IMPORTANCE_CACHED / BACKGROUND
+        // Literals — IMPORTANCE_SERVICE (300) is API 23; linking the field
+        // NoSuchFieldError-crashes Galaxy S6 still on Lollipop.
+        if (importance <= 100) return "foreground";
+        if (importance <= 200) return "visible";
+        if (importance <= 300) return "service";
+        if (importance <= 400) return "cached";
         return "running";
     }
 
@@ -234,7 +238,7 @@ public class DeviceBridge {
                 if (procs != null) {
                     for (ActivityManager.RunningAppProcessInfo info : procs) {
                         if (info.pkgList == null) continue;
-                        if (info.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) {
+                        if (info.importance <= 200) {
                             continue;
                         }
                         for (String pkg : info.pkgList) {
@@ -416,7 +420,7 @@ public class DeviceBridge {
                     Set<String> seen = new HashSet<>();
                     for (ActivityManager.RunningAppProcessInfo info : procs) {
                         if (info.pkgList == null) continue;
-                        if (info.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) {
+                        if (info.importance <= 200) {
                             continue;
                         }
                         for (String pkg : info.pkgList) {
@@ -440,7 +444,7 @@ public class DeviceBridge {
                                         .put("kind", "ram_blob")
                                         .put("packageName", pkg)
                                         .put("running", true));
-                            } else if (info.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE
+                            } else if (info.importance == 300
                                     && ramMb >= 180 && findings.length() < 40) {
                                 blobs++;
                                 findings.put(new JSONObject()
@@ -581,7 +585,7 @@ public class DeviceBridge {
         return arr;
     }
 
-    private static String errorJson(Exception e) {
+    private static String errorJson(Throwable e) {
         try {
             return new JSONObject()
                     .put("ok", false)
