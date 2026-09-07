@@ -27,7 +27,7 @@ v1.0.4 is the **only** GitHub Release. Older APKs and tags are not published.
 3. If Play Protect says Uncommon: More details → Install anyway
 4. Open, Grant Temporary Root (optional), Optimize / Clean
 
-Package `com.apexcare.app` - versionCode **25** / **1.0.4** - minSdk **21** / targetSdk **34** - signed v1+v2+v3
+Package `com.apexcare.app` - versionCode **26** / **1.0.4** - minSdk **21** (Galaxy S6+) / targetSdk **34** - signed v1+v2+v3
 
 ---
 
@@ -43,7 +43,7 @@ Package `com.apexcare.app` - versionCode **25** / **1.0.4** - minSdk **21** / ta
 
 ## v1.0.4 (sole published APK)
 
-Incremental - **not** a Full Send rebrand. Sideload over any older Apex Care (same demo cert, higher versionCode).
+Incremental - **not** a Full Send rebrand. **Uninstall older Apex Care first** — this build uses a fresh v1+v2+v3 sideload cert (Android will not upgrade across certificates).
 
 - Optimize and Safe scan **auto-engage TEMP ROOT** (Magisk su if already granted) before reclaim
 - Hanging / failed-close **retry pass** plus `am kill` / `stop-app` / compact / trim (no SIGKILL)

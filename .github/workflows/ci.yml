@@ -61,7 +61,9 @@ jobs:
           grep -q "am kill-all" android/app/src/main/java/com/apexcare/app/MagiskRoot.java
           grep -q "extractNativeLibs=\"true\"" android/app/src/main/AndroidManifest.xml
           grep -q "android.permission.INTERNET" android/app/src/main/AndroidManifest.xml
+          grep -q "ApexApplication" android/app/src/main/AndroidManifest.xml
           grep -q "loadDataWithBaseURL" android/app/src/main/java/com/apexcare/app/MainActivity.java
+          ! grep -q "probeQuick" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
           ! grep -q "setAllowUniversalAccessFromFileURLs(true)" android/app/src/main/java/com/apexcare/app/MainActivity.java
           ! grep -q "ACTION_CLEAN_RAM" android/app/src/main/AndroidManifest.xml
           ! grep -R -F 'kill -9' android/app/src/main/java

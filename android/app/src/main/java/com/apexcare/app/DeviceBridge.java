@@ -29,7 +29,8 @@ public class DeviceBridge {
     }
 
     private boolean hasRoot() {
-        return magisk.isGranted() || magisk.probeQuick();
+        // Never exec su here — launch / RAM ticks would ANR or trip Knox.
+        return magisk.isGranted();
     }
 
     private boolean hasRealRoot() {

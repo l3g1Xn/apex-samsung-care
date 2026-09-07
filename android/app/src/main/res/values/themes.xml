@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.ApexCare" parent="Theme.MaterialComponents.NoActionBar">
+    <!-- AppCompat, not MaterialComponents — One UI theme inflate crashes on some SKUs. -->
+    <style name="Theme.ApexCare" parent="Theme.AppCompat.NoActionBar">
         <item name="android:statusBarColor">#07080A</item>
         <item name="android:navigationBarColor">#101214</item>
         <item name="android:windowBackground">#07080A</item>
         <item name="colorPrimary">#3ECFBF</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
     </style>
 </resources>

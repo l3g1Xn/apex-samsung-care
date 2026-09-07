@@ -19,9 +19,9 @@ def resolvedStore = rootProject.file(storeFilePath)
 if (!resolvedStore.exists()) {
     resolvedStore = demoStoreFile
 }
-def storePass = keystoreProps.getProperty("storePassword", "apexcare2026v3")
+def storePass = keystoreProps.getProperty("storePassword", "ApexCare26Sideload")
 def keyAliasName = keystoreProps.getProperty("keyAlias", "apexcare")
-def keyPass = keystoreProps.getProperty("keyPassword", "apexcare2026v3")
+def keyPass = keystoreProps.getProperty("keyPassword", "ApexCare26Sideload")
 
 android {
     namespace "com.apexcare.app"
@@ -32,12 +32,12 @@ android {
         // Galaxy S6 / S7 flagships (Lollipop 5.0) through current One UI
         minSdk 21
         targetSdk 34
-        versionCode 25
+        versionCode 26
         versionName "1.0.4"
 
-        // Universal APK: all ABIs, all densities (no splits)
+        // Samsung flagships are ARM. x86 in a phone APK is a Play Protect PUP heuristic.
         ndk {
-            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+            abiFilters "armeabi-v7a", "arm64-v8a"
         }
 
         vectorDrawables.useSupportLibrary = true
@@ -109,8 +109,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
 
     lint {
@@ -121,7 +121,13 @@ android {
 
 dependencies {
     implementation "androidx.appcompat:appcompat:1.6.1"
-    implementation "androidx.core:core:1.13.1"
     implementation "androidx.webkit:webkit:1.11.0"
-    implementation "com.google.android.material:material:1.11.0"
+}
+
+configurations.configureEach {
+    resolutionStrategy {
+        force "org.jetbrains.kotlin:kotlin-stdlib:1.8.22"
+        force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22"
+        force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22"
+    }
 }
