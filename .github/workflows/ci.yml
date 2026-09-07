@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   build:
@@ -29,21 +30,17 @@ jobs:
 
       - name: Assemble release (signed, no publish)
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --quiet
 
       - name: Verify APK signature
         run: |
           set -euo pipefail
           APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
-          jarsigner -verify "$APK" | tee /tmp/jsign.txt
+          jarsigner -verify "$APK" > /tmp/jsign.txt
           grep -qi "jar verified" /tmp/jsign.txt
-          python3 - <<PY
-          data=open("$APK","rb").read()
-          assert data.rfind(b"APK Sig Block 42") != -1
-          print("sig ok")
-          PY
+          python3 -c 'import sys; d=open(sys.argv[1],"rb").read(); assert d.rfind(b"APK Sig Block 42")!=-1' "$APK"
 
-      - name: Guard — no shell injection helpers
+      - name: Guard - no shell injection helpers
         run: |
           set -euo pipefail
           grep -q "forceStopPackage" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
@@ -60,4 +57,10 @@ jobs:
           ! grep -q "setAllowUniversalAccessFromFileURLs(true)" android/app/src/main/java/com/apexcare/app/MainActivity.java
           ! grep -q "ACTION_CLEAN_RAM" android/app/src/main/AndroidManifest.xml
           ! grep -F 'kill -9 " + p.pid' android/app/src/main/java/com/apexcare/app/RamCleanerWidget.java
-          echo "security guards OK"
+
+      - name: Scrub Actions logs
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/${{ github.run_id }}/logs" || true
