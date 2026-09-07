@@ -105,7 +105,8 @@ public class DeviceBridge {
             ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
             boolean hung = stillRunning(am, packageName);
             if (hung) {
-                magisk.reclaimPackage(context, packageName);
+                briefPause(80);
+                magisk.reclaimPackage(context, packageName, true);
                 hung = stillRunning(am, packageName);
                 if (!hung) method = method + "+retry";
             }
@@ -209,6 +210,14 @@ public class DeviceBridge {
         return false;
     }
 
+    private static void briefPause(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     @JavascriptInterface
     public String optimizeDevice() {
         try {
@@ -238,23 +247,32 @@ public class DeviceBridge {
                         }
                     }
                 }
+                briefPause(90);
                 // Pass 2 — hanging / failed close (process still listed)
                 for (String pkg : attempted) {
                     if (!stillRunning(am, pkg)) continue;
-                    magisk.reclaimPackage(context, pkg);
+                    magisk.reclaimPackage(context, pkg, true);
                     retried++;
-                    if (stillRunning(am, pkg)
-                            && attempted.size() < 200) {
+                }
+                briefPause(70);
+                // Pass 3 — leftover blobs of code / empty cached processes
+                for (String pkg : attempted) {
+                    if (!stillRunning(am, pkg)) continue;
+                    magisk.reclaimPackage(context, pkg, true);
+                    retried++;
+                    if (stillRunning(am, pkg) && hungPkgs.length() < 40) {
                         hungPkgs.put(pkg);
                     }
                 }
             }
+            boolean systemReclaim = magisk.reclaimSystem(context);
             try {
                 Runtime.getRuntime().gc();
             } catch (Exception ignored) {}
             boolean elevated = hasRoot();
             String method = hasRealRoot() ? "root_reclaim" : elevated ? "userspace_temp_kill" : "kill_background";
             if (retried > 0) method = method + "+hang_retry";
+            if (systemReclaim || hasRealRoot()) method = method + "+cpu_npu_trim";
             return new JSONObject()
                     .put("ok", true)
                     .put("closed", closed)
@@ -266,6 +284,8 @@ public class DeviceBridge {
                     .put("realRoot", hasRealRoot())
                     .put("mode", magisk.getMode())
                     .put("elevated", elev.ok)
+                    .put("systemReclaim", systemReclaim)
+                    .put("npuSafe", true)
                     .put("method", method)
                     .put("mem", RamMetrics.sampleFast(context).toJson(elevated))
                     .toString();
@@ -289,7 +309,7 @@ public class DeviceBridge {
                 if (ProtectedPackages.isProtected(context, pkg)) continue;
                 magisk.reclaimPackage(context, pkg);
                 if (stillRunning(am, pkg)) {
-                    magisk.reclaimPackage(context, pkg);
+                    magisk.reclaimPackage(context, pkg, true);
                     if (stillRunning(am, pkg)) hung++;
                     else closed++;
                 } else {

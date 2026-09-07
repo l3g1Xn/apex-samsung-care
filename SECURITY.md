@@ -25,14 +25,15 @@ It does **not** phone home, upload package lists, or auto-root a stock device.
 ## Protections (1.0.4)
 
 - **Package name validation** before any kill / force-stop path
-- **Root command allowlist** (`id`, `am force-stop <pkg>`, `cmd activity force-stop <pkg>`, `am kill <pkg>`, `cmd activity stop-app <pkg>`, `cmd activity compact <pkg> some|full`, `am send-trim-memory <pkg> RUNNING_CRITICAL|COMPLETE`). **No SIGKILL / `kill -9`.**
+- **Root command allowlist** (`id`, `am kill-all`, `am force-stop <pkg>`, `cmd activity force-stop <pkg>`, `am kill <pkg>`, `cmd activity stop-app <pkg>`, `cmd activity compact <pkg> some|full`, `am send-trim-memory <pkg> RUNNING_CRITICAL|COMPLETE`). **No SIGKILL / `kill -9`.**
 - **Expanded protect list** (One UI telephony, input, Knox, Magisk/KernelSU/APatch, launchers, Find My, Samsung Account, DeX, GMS, Wallet, Health, camera, gallery, IMS, Android Auto, Bixby, Secure Folder, Galaxy AI, Quick Share)
 - **User protect list** (validated package names, cap 80, SharedPreferences)
 - **Bulk Optimize / widget Clean skip foreground and visible** processes
 - **Widget no longer uses SIGKILL** and no longer sweeps all `com.samsung.android.app.*` installs
 - **Optimize / Safe scan auto-engage TEMP ROOT** (or Magisk su if already granted) before closing or scanning
-- **Hanging-process retry** after a failed reclaim (second pass + compact/trim)
+- **Hanging-process retry** (pass 2 compact-full + COMPLETE trim, pass 3 leftover blobs) then `am kill-all` for empty cached CPU (NPU/GPU HALs stay protected)
 - **Dropped unused `PACKAGE_USAGE_STATS`** and persistence `keep_process_alive` metadata (Play Protect surface)
+- **No `INTERNET` permission** (offline WebView; Magisk probe is local files) and `extractNativeLibs=false` (no native .so)
 - **No `/data/local/tmp/su` probe** (common riskware signature)
 - **WebView locked down**: `WebViewAssetLoader` (no file-URL access), no universal file access, mixed content never, stray HTTPS 403
 - **Widget custom actions** are explicit-component only (not exported as implicit broadcasts)
