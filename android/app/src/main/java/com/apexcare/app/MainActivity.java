@@ -62,25 +62,26 @@ public class MainActivity extends AppCompatActivity {
         try {
             WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
         } catch (Throwable ignored) {}
-        try {
-            RamMetrics.sampleFast(this);
-        } catch (Throwable ignored) {}
-        ramWorker.execute(() -> {
-            try {
-                RamMetrics.sampleThorough(MainActivity.this);
-            } catch (Throwable ignored) {}
-        });
 
-        FrameLayout root = new FrameLayout(this);
+        final FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0xFF07080A);
         setContentView(root);
 
-        try {
-            bootWebView(root);
-        } catch (Throwable t) {
-            Log.e(TAG, "WebView bootstrap failed", t);
-            showWebViewMissing(root, t);
-        }
+        // Defer WebView until first layout — Samsung provider crashes if constructed
+        // during Activity super.onCreate / before the window is attached.
+        root.post(() -> {
+            try {
+                bootWebView(root);
+            } catch (Throwable t) {
+                Log.e(TAG, "WebView bootstrap failed", t);
+                showWebViewMissing(root, t);
+            }
+        });
+        ramWorker.execute(() -> {
+            try {
+                RamMetrics.sampleFast(MainActivity.this);
+            } catch (Throwable ignored) {}
+        });
     }
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
@@ -88,6 +89,13 @@ public class MainActivity extends AppCompatActivity {
         // Do not inflate WebView from XML — Samsung provider updates crash inflation.
         webView = new WebView(this);
         webView.setId(View.generateViewId());
+        try {
+            boolean samsung = "samsung".equalsIgnoreCase(Build.MANUFACTURER)
+                    || "samsung".equalsIgnoreCase(Build.BRAND);
+            if (samsung && Build.VERSION.SDK_INT < 29) {
+                webView.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+            }
+        } catch (Throwable ignored) {}
         root.addView(webView, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
@@ -226,8 +234,16 @@ public class MainActivity extends AppCompatActivity {
                     "utf-8",
                     null);
             Log.i(TAG, "Loaded UI via loadDataWithBaseURL");
-        } catch (Exception e) {
+        } catch (Throwable e) {
             Log.e(TAG, "asset load failed", e);
+            try {
+                webView.loadDataWithBaseURL(
+                        ASSET_HTTPS,
+                        "<!doctype html><html><body style='background:#07080A;color:#eef1f4;font-family:sans-serif;padding:24px'><h1>Apex Care</h1><p>UI failed to load. Reinstall the v1.0.4 APK.</p></body></html>",
+                        "text/html",
+                        "utf-8",
+                        null);
+            } catch (Throwable ignored) {}
         }
     }
 

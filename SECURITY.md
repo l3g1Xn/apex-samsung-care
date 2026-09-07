@@ -34,7 +34,8 @@ It does **not** phone home, upload package lists, or auto-root a stock device.
 - **Hanging-process retry** (pass 2 compact-full + COMPLETE trim, pass 3 leftover blobs) then `am kill-all` for empty cached CPU (NPU/GPU HALs stay protected)
 - **Dropped unused `PACKAGE_USAGE_STATS`** and persistence `keep_process_alive` metadata (Play Protect surface)
 - **No `INTERNET` permission** (offline WebView; Magisk probe is local files) and `extractNativeLibs=false` (no native .so)
-- **No `/data/local/tmp/su` probe** (common riskware signature)
+- **No `su` exec on launch** (RAM ticks / widget only read in-process TEMP ROOT / Magisk session flags). Superuser handshake runs only after Grant Root / Optimize / Safe scan.
+- **`QUERY_ALL_PACKAGES` is not requested** (Play Protect PUP surface). `INTERNET` is declared because Samsung WebView crashes on open without it; Chromium network fetches are intercepted 403.
 - **WebView locked down**: `WebViewAssetLoader` (no file-URL access), no universal file access, mixed content never, stray HTTPS 403
 - **Widget custom actions** are explicit-component only (not exported as implicit broadcasts)
 - **UI-thread RAM sample is sleep-free** including first-open HW scan (`scanUsableRamKbFast`)
@@ -52,7 +53,7 @@ Please do **not** open PRs that demonstrate live RCE payloads against end-user d
 
 ## Sideload signing
 
-Release APKs use a **sideload keystore** committed for CI reproducibility (rotated 2026-09 — previous `apexcare1000` cert is retired). Treat it as public. **Uninstall older Apex Care before installing** — Android will not upgrade across certificates.
+Release APKs use a **sideload keystore** committed for CI (rotated 2026-09-07, `ApexCare26Sideload`). Treat it as public. **Uninstall older Apex Care before installing** — Android will not upgrade across certificates.
 
 Play Protect often labels a first-seen sideload certificate as **Uncommon / PUP**. That is not a malware verdict. This APK is not listed on Google Play. If Play Protect blocks install, use **More details → Install anyway**. Do not disable Play Protect permanently.
 

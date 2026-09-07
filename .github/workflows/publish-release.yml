@@ -71,7 +71,7 @@ jobs:
           python3 -c 'import sys; d=open(sys.argv[1],"rb").read(); assert d.rfind(b"APK Sig Block 42")!=-1' "$APK"
           APKSIGNER=$(find "$ANDROID_HOME" -name apksigner 2>/dev/null | head -1 || true)
           if [ -n "$APKSIGNER" ]; then
-            "$APKSIGNER" verify "$APK" >/dev/null
+            "$APKSIGNER" verify --min-sdk-version 21 "$APK" >/dev/null
           fi
 
       - name: Publish sole release

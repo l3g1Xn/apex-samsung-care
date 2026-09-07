@@ -127,7 +127,7 @@ public class RamCleanerWidget extends AppWidgetProvider {
     }
 
     private static boolean hasRoot() {
-        return MagiskRoot.get().isGranted() || MagiskRoot.get().probeQuick();
+        return MagiskRoot.get().isGranted();
     }
 
     private static class CleanResult {

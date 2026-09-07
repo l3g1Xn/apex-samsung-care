@@ -97,7 +97,9 @@ public final class MagiskRoot {
         return isUserspaceActive();
     }
 
-    public boolean isRealRoot() { return realRoot.get() && (shellAlive() || probeSuQuick(1500)); }
+    public boolean isRealRoot() {
+        return realRoot.get() && shellAlive();
+    }
 
     public boolean isUserspaceActive() {
         return userspaceRoot.get() && System.currentTimeMillis() < userspaceUntil.get();
