@@ -100,7 +100,7 @@ public class DeviceBridge {
             String method = "kill_background";
             if (real) {
                 // Only allow force-stop via validated package API (no free-form shell)
-                magisk.forceStopPackage(packageName);
+                magisk.forceStopPackage(context, packageName);
                 method = "root_force_stop";
             }
             ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
@@ -164,13 +164,15 @@ public class DeviceBridge {
                     } catch (Exception ignored) {
                         row.put("system", false);
                     }
-                    row.put("name", label);
+                     row.put("name", label);
                     row.put("label", label);
                     long pss = 0;
-                    try {
-                        Debug.MemoryInfo[] mis = am.getProcessMemoryInfo(new int[]{info.pid});
-                        if (mis != null && mis.length > 0) pss = mis[0].getTotalPss();
-                    } catch (Exception ignored) {}
+                    if (seen.size() <= 80) {
+                        try {
+                            Debug.MemoryInfo[] mis = am.getProcessMemoryInfo(new int[]{info.pid});
+                            if (mis != null && mis.length > 0) pss = mis[0].getTotalPss();
+                        } catch (Exception ignored) {}
+                    }
                     row.put("ramMb", Math.round(pss / 1024.0));
                     row.put("protected", ProtectedPackages.isProtected(context, pkg));
                     row.put("running", true);
@@ -208,6 +210,10 @@ public class DeviceBridge {
                     Set<String> done = new HashSet<>();
                     for (ActivityManager.RunningAppProcessInfo info : procs) {
                         if (info.pkgList == null) continue;
+                        // Bulk optimize must not kill the app the user is looking at
+                        if (info.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) {
+                            continue;
+                        }
                         for (String pkg : info.pkgList) {
                             if (pkg == null || done.contains(pkg)) continue;
                             if (!ProtectedPackages.isValidPackage(pkg)) continue;
@@ -229,7 +235,7 @@ public class DeviceBridge {
                     .put("closedPackages", closedPkgs)
                     .put("hasRoot", elevated)
                     .put("method", hasRealRoot() ? "root_force_stop" : elevated ? "userspace_temp_kill" : "kill_background")
-                    .put("mem", new JSONObject(getMemoryStats()))
+                    .put("mem", RamMetrics.sampleFast(context).toJson(elevated))
                     .toString();
         } catch (Exception e) {
             return errorJson(e);
@@ -254,7 +260,7 @@ public class DeviceBridge {
                     .put("ok", true)
                     .put("closed", closed)
                     .put("hasRoot", hasRoot())
-                    .put("mem", new JSONObject(getMemoryStats()))
+                    .put("mem", RamMetrics.sampleFast(context).toJson(hasRoot()))
                     .toString();
         } catch (Exception e) {
             return errorJson(e);
@@ -410,6 +416,53 @@ public class DeviceBridge {
         } catch (Exception e) {
             return errorJson(e);
         }
+    }
+
+    @JavascriptInterface
+    public String addUserProtect(String packageName) {
+        try {
+            boolean ok = ProtectedPackages.addUser(context, packageName);
+            return new JSONObject()
+                    .put("ok", ok)
+                    .put("error", ok ? JSONObject.NULL : "invalid_or_full")
+                    .put("packages", userProtectJson())
+                    .toString();
+        } catch (Exception e) {
+            return errorJson(e);
+        }
+    }
+
+    @JavascriptInterface
+    public String removeUserProtect(String packageName) {
+        try {
+            boolean ok = ProtectedPackages.removeUser(context, packageName);
+            return new JSONObject()
+                    .put("ok", ok)
+                    .put("packages", userProtectJson())
+                    .toString();
+        } catch (Exception e) {
+            return errorJson(e);
+        }
+    }
+
+    @JavascriptInterface
+    public String listUserProtect() {
+        try {
+            return new JSONObject()
+                    .put("ok", true)
+                    .put("packages", userProtectJson())
+                    .toString();
+        } catch (Exception e) {
+            return errorJson(e);
+        }
+    }
+
+    private JSONArray userProtectJson() {
+        JSONArray arr = new JSONArray();
+        for (String p : ProtectedPackages.userSnapshot(context)) {
+            arr.put(p);
+        }
+        return arr;
     }
 
     private static String errorJson(Exception e) {

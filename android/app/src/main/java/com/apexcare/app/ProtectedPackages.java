@@ -1,6 +1,7 @@
 package com.apexcare.app;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -15,6 +16,11 @@ import java.util.regex.Pattern;
 public final class ProtectedPackages {
     private static final Pattern VALID_PKG = Pattern.compile(
             "^[a-zA-Z][a-zA-Z0-9_]*(?:\\.[a-zA-Z][a-zA-Z0-9_]*)+$");
+
+    /** User-added hold list. Copied before mutate — SharedPreferences StringSet is not safe in-place. */
+    public static final String USER_PREFS = "apex_user_protect";
+    private static final String KEY_USER = "packages";
+    private static final int MAX_USER = 80;
 
     private static final Set<String> CORE;
     static {
@@ -113,7 +119,33 @@ public final class ProtectedPackages {
                 "com.android.contacts",
                 "com.samsung.android.calendar",
                 "com.sec.android.app.clockpackage",
-                "com.google.android.apps.nexuslauncher"
+                "com.google.android.apps.nexuslauncher",
+                // v1.0.4 — camera / gallery / account / IMS / Auto / Galaxy AI / Secure Folder
+                "com.sec.android.app.camera",
+                "com.samsung.android.camera",
+                "com.android.camera2",
+                "com.sec.android.gallery3d",
+                "com.samsung.android.gallery3d",
+                "com.samsung.android.samsungaccount",
+                "com.google.android.apps.walletnfcrel",
+                "com.google.android.apps.messaging",
+                "com.samsung.knox.securefolder",
+                "com.samsung.android.bixby.agent",
+                "com.samsung.android.bixby.wakeup",
+                "com.samsung.android.app.sharelive",
+                "com.samsung.android.aware.service",
+                "com.samsung.android.privateshare",
+                "com.google.android.projection.gearhead",
+                "com.sec.imsservice",
+                "com.samsung.ims",
+                "com.samsung.android.intellivoiceservice",
+                "com.samsung.android.offline.languagemodel",
+                "com.samsung.android.app.interpreter",
+                "com.samsung.android.app.smartcapture",
+                "com.samsung.android.mcfds",
+                "com.samsung.android.mdecservice",
+                "com.samsung.android.app.watchmanager2",
+                "com.samsung.android.geargplugin"
         };
         Collections.addAll(s, pkgs);
         CORE = Collections.unmodifiableSet(s);
@@ -160,6 +192,7 @@ public final class ProtectedPackages {
         if (!isValidPackage(packageName)) return true;
         if (context != null && packageName.equals(context.getPackageName())) return true;
         if (CORE.contains(packageName)) return true;
+        if (context != null && userSnapshot(context).contains(packageName)) return true;
         String lower = packageName.toLowerCase(Locale.US);
         if (lower.startsWith("com.android.providers.")) return true;
         if (lower.contains("telecom") || lower.contains("telephony")) return true;
@@ -175,10 +208,52 @@ public final class ProtectedPackages {
         if (lower.contains("shealth") || lower.contains("heartplugin")) return true;
         if (lower.startsWith("com.samsung.android.mdx")) return true;
         if (lower.contains("galaxyregistry")) return true;
+        if (lower.contains("securefolder")) return true;
+        if (lower.contains("bixby.agent") || lower.contains("bixby.wakeup")) return true;
+        if (lower.contains("walletnfcrel")) return true;
+        if (lower.contains("imsservice") || lower.contains(".ims.")) return true;
+        if (lower.contains("projection.gearhead")) return true;
+        if (lower.contains("samsungaccount")) return true;
+        if (lower.contains("gallery3d") || lower.endsWith(".app.camera") || lower.contains("sec.android.app.camera")) {
+            return true;
+        }
+        if (lower.contains("intellivoiceservice") || lower.contains("offline.languagemodel")) return true;
+        if (lower.contains("privateshare") || lower.contains("app.sharelive")) return true;
         return false;
     }
 
     public static Set<String> coreSnapshot() {
         return CORE;
+    }
+
+    public static Set<String> userSnapshot(Context context) {
+        if (context == null) return Collections.emptySet();
+        SharedPreferences sp = context.getSharedPreferences(USER_PREFS, Context.MODE_PRIVATE);
+        Set<String> raw = sp.getStringSet(KEY_USER, null);
+        if (raw == null || raw.isEmpty()) return Collections.emptySet();
+        Set<String> out = new HashSet<>();
+        for (String p : raw) {
+            if (isValidPackage(p)) out.add(p);
+        }
+        return Collections.unmodifiableSet(out);
+    }
+
+    public static boolean addUser(Context context, String packageName) {
+        if (context == null || !isValidPackage(packageName)) return false;
+        SharedPreferences sp = context.getSharedPreferences(USER_PREFS, Context.MODE_PRIVATE);
+        Set<String> next = new HashSet<>(sp.getStringSet(KEY_USER, Collections.emptySet()));
+        if (next.size() >= MAX_USER && !next.contains(packageName)) return false;
+        next.add(packageName);
+        sp.edit().putStringSet(KEY_USER, next).apply();
+        return true;
+    }
+
+    public static boolean removeUser(Context context, String packageName) {
+        if (context == null || packageName == null) return false;
+        SharedPreferences sp = context.getSharedPreferences(USER_PREFS, Context.MODE_PRIVATE);
+        Set<String> next = new HashSet<>(sp.getStringSet(KEY_USER, Collections.emptySet()));
+        boolean gone = next.remove(packageName);
+        if (gone) sp.edit().putStringSet(KEY_USER, next).apply();
+        return gone;
     }
 }

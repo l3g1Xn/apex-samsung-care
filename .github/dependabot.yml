@@ -15,3 +15,5 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "gradle"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "org.jetbrains.kotlin.android"
+        update-types: ["version-update:semver-major"]

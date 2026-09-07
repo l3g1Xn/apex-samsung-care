@@ -6,8 +6,9 @@
 
 | Version | Supported |
 |---------|-----------|
-| 1.0.3+  | Yes — current maintenance line |
-| 1.0.2   | Yes until 1.0.3 APK is tagged |
+| 1.0.4+  | Yes — current maintenance line |
+| 1.0.3   | Yes until 1.0.4 APK is tagged |
+| 1.0.2   | Yes until a later APK is tagged |
 | 1.0.1   | Yes until 1.0.2 APK is tagged |
 | 1.0.0   | Superseded — upgrade recommended |
 | < 1.0.0 | No |
@@ -21,17 +22,19 @@
 
 It does **not** phone home, upload package lists, or auto-root a stock device.
 
-## Protections (1.0.3)
+## Protections (1.0.4)
 
 - **Package name validation** before any kill / force-stop path
 - **Root command allowlist** (`id`, `am force-stop <pkg>`, `cmd activity force-stop <pkg>`, `kill -9 <pid>`)
-- **Expanded protect list** (One UI telephony, input, Knox, Magisk/KernelSU/APatch, launchers, Find My, Samsung Account, DeX, GMS, …)
+- **Expanded protect list** (One UI telephony, input, Knox, Magisk/KernelSU/APatch, launchers, Find My, Samsung Account, DeX, GMS, Wallet, Health, camera, gallery, IMS, Android Auto, Bixby, Secure Folder, Galaxy AI, Quick Share)
+- **User protect list** (validated package names, cap 80, SharedPreferences)
+- **Bulk Optimize / widget Clean skip foreground & visible** processes
+- **Widget no longer `kill -9` by PID** and no longer sweeps all `com.samsung.android.app.*` installs
 - **WebView locked down**: `WebViewAssetLoader` (no file-URL access), no universal file access, mixed content never, stray HTTPS 403
 - **Widget custom actions** are explicit-component only (not exported as implicit broadcasts)
 - **UI-thread RAM sample is sleep-free** including first-open HW scan (`scanUsableRamKbFast`)
 - **WebView fallback never uses file://** (`loadDataWithBaseURL` on the asset-loader origin)
 - **Widget Clean is off the main looper**
-- **UI-thread RAM sample is sleep-free** (ANR-safe on low-end One UI)
 - **Backup disabled** (`allowBackup=false`, data extraction rules exclude prefs)
 - **Cleartext traffic disabled**
 

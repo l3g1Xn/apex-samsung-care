@@ -272,8 +272,12 @@ public final class MagiskRoot {
      * Never interpolates untrusted strings into a shell.
      */
     public boolean forceStopPackage(String packageName) {
+        return forceStopPackage(null, packageName);
+    }
+
+    public boolean forceStopPackage(Context context, String packageName) {
         if (!ProtectedPackages.isValidPackage(packageName)) return false;
-        if (ProtectedPackages.isProtected(null, packageName)) return false;
+        if (ProtectedPackages.isProtected(context, packageName)) return false;
         boolean a = run("am force-stop " + packageName);
         boolean b = run("cmd activity force-stop " + packageName);
         return a || b;
