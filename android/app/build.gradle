@@ -32,8 +32,8 @@ android {
         // Android 7.0+ — covers modern Samsung One UI (A/S/Z/F/M series)
         minSdk 24
         targetSdk 34
-        versionCode 19
-        versionName "1.0.1"
+        versionCode 20
+        versionName "1.0.2"
 
         // Universal APK: all ABIs, all densities (no splits)
         ndk {

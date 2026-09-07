@@ -2,43 +2,76 @@ package com.apexcare.app;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.webkit.ConsoleMessage;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.webkit.WebViewAssetLoader;
 
+import java.io.ByteArrayInputStream;
+import java.util.Collections;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/**
+ * Local packaged UI only. Asset loader serves https://appassets.androidplatform.net
+ * so we never enable file-URL cross-origin. All other network is intercepted 403.
+ */
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "ApexCare";
-    private static final String ASSET_URL = "file:///android_asset/www/index.html";
+    private static final String ASSET_HTTPS =
+            "https://appassets.androidplatform.net/assets/www/index.html";
+    private static final String ASSET_FILE = "file:///android_asset/www/index.html";
+
     private WebView webView;
+    private WebViewAssetLoader assetLoader;
+    private final ExecutorService ramWorker = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "apex-ram-scan");
+        t.setDaemon(true);
+        return t;
+    });
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Edge-to-edge friendly on gesture-nav Samsung devices
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
-        RamMetrics.sample(this); // hardware RAM scan + cache on install/open
+        // Fast path on UI thread — never Thread.sleep here (ANR on low-end One UI)
+        try {
+            RamMetrics.sampleFast(this);
+        } catch (Exception ignored) {}
+        ramWorker.execute(() -> {
+            try {
+                RamMetrics.sampleThorough(MainActivity.this);
+            } catch (Exception ignored) {}
+        });
         setContentView(R.layout.activity_main);
+
+        assetLoader = new WebViewAssetLoader.Builder()
+                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .build();
 
         webView = findViewById(R.id.webview);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(false);
-        // Local asset only — do not open universal/file cross-origin holes
-        settings.setAllowFileAccess(true);
+        settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setAllowFileAccessFromFileURLs(false);
@@ -46,7 +79,8 @@ public class MainActivity extends AppCompatActivity {
         settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setLoadsImagesAutomatically(true);
         settings.setBlockNetworkImage(true);
-        settings.setBlockNetworkLoads(true); // offline UI — no remote fetch
+        // AssetLoader needs the request to reach shouldInterceptRequest
+        settings.setBlockNetworkLoads(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         if (android.os.Build.VERSION.SDK_INT >= 26) {
             settings.setSafeBrowsingEnabled(true);
@@ -58,12 +92,25 @@ public class MainActivity extends AppCompatActivity {
         webView.addJavascriptInterface(new DeviceBridge(this), "ApexNative");
         webView.setWebViewClient(new WebViewClient() {
             @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                if (request == null || request.getUrl() == null) {
+                    return blocked();
+                }
+                WebResourceResponse served = assetLoader.shouldInterceptRequest(request.getUrl());
+                if (served != null) return served;
+                String host = request.getUrl().getHost();
+                if (host != null && host.equals("appassets.androidplatform.net")) {
+                    return blocked();
+                }
+                return blocked();
+            }
+
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                // Stay inside packaged asset UI only
                 if (request == null || request.getUrl() == null) return true;
                 String u = request.getUrl().toString();
+                if (u.startsWith("https://appassets.androidplatform.net/assets/")) return false;
                 if (u.startsWith("file:///android_asset/")) return false;
-                // Allow GitHub links to open externally via system
                 if (u.startsWith("https://github.com/l3g1Xn/apex-samsung-care")) {
                     try {
                         startActivity(new android.content.Intent(
@@ -77,6 +124,14 @@ public class MainActivity extends AppCompatActivity {
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request != null && request.isForMainFrame()) {
                     Log.e(TAG, "WebView error: " + error.getDescription());
+                    // Fallback to file asset if https asset loader path fails
+                    String failing = request.getUrl() != null ? request.getUrl().toString() : "";
+                    if (failing.startsWith("https://appassets.androidplatform.net")
+                            && webView != null) {
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            if (webView != null) webView.loadUrl(ASSET_FILE);
+                        });
+                    }
                 }
             }
 
@@ -96,33 +151,44 @@ public class MainActivity extends AppCompatActivity {
         });
         webView.setBackgroundColor(0xFF07080A);
         webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        webView.loadUrl(ASSET_URL);
+        webView.loadUrl(ASSET_HTTPS);
 
-        // Safe-area padding for notched / camera-cutout Samsung displays
         ViewCompat.setOnApplyWindowInsetsListener(webView, (v, insets) -> {
             Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(sys.left, sys.top, sys.right, sys.bottom);
             return insets;
         });
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (webView != null && webView.canGoBack()) {
+                    webView.goBack();
+                    return;
+                }
+                setEnabled(false);
+                getOnBackPressedDispatcher().onBackPressed();
+                setEnabled(true);
+            }
+        });
     }
 
-    @Override
-    @SuppressWarnings("deprecation")
-    public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
+    private static WebResourceResponse blocked() {
+        return new WebResourceResponse(
+                "text/plain",
+                "utf-8",
+                403,
+                "Blocked",
+                Collections.emptyMap(),
+                new ByteArrayInputStream(new byte[0]));
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         if (webView != null) webView.onResume();
-        // Refresh cached HW total if prefs expired (no-op when warm)
         try {
-            RamMetrics.sample(this);
+            RamMetrics.sampleFast(this);
         } catch (Exception ignored) {}
     }
 
@@ -134,6 +200,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        ramWorker.shutdownNow();
         if (webView != null) {
             webView.removeJavascriptInterface("ApexNative");
             webView.loadUrl("about:blank");

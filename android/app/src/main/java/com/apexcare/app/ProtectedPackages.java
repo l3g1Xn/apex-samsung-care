@@ -68,7 +68,38 @@ public final class ProtectedPackages {
                 "com.samsung.android.saiv.face",
                 "com.android.systemui.accessibility.accessibilitymenu",
                 "com.google.android.apps.accessibility.voiceaccess",
-                "com.apexcare.app"
+                "com.apexcare.app",
+                "com.samsung.android.scloud",
+                "com.osp.app.signin",
+                "com.samsung.android.samsungpassautofill",
+                "com.samsung.android.authfw",
+                "com.samsung.android.fmm",
+                "com.samsung.android.app.find",
+                "com.samsung.android.emergency",
+                "com.sec.android.app.safetyassurance",
+                "com.samsung.android.oneconnect",
+                "com.samsung.android.app.watchmanager",
+                "com.samsung.android.da.daagent",
+                "com.sec.android.app.desktoplauncher",
+                "com.samsung.desktopsystemui",
+                "com.sec.android.app.dexonpc",
+                "com.android.launcher3",
+                "com.sec.android.app.samsungapps",
+                "com.samsung.android.app.aodservice",
+                "com.samsung.android.app.cocktailbarservice",
+                "com.samsung.android.app.routines",
+                "com.google.android.apps.wellbeing",
+                "com.samsung.android.forest",
+                "com.sec.android.app.setupwizard",
+                "com.samsung.android.knox.containeragent",
+                "com.samsung.klmsagent",
+                "com.topjohnwu.magisk",
+                "io.github.vvb2060.magisk",
+                "io.github.huskydg.magisk",
+                "io.github.vvb2060.magisk.alpha",
+                "me.weishu.kernelsu",
+                "com.rifsxd.ksunext",
+                "me.bmax.apatch"
         };
         Collections.addAll(s, pkgs);
         CORE = Collections.unmodifiableSet(s);
@@ -122,8 +153,10 @@ public final class ProtectedPackages {
         if (lower.contains("permissioncontroller")) return true;
         if (lower.startsWith("com.samsung.android.biometrics")) return true;
         if (lower.startsWith("com.samsung.android.knox")) return true;
-        // Never force-stop Magisk itself mid-grant
-        if (lower.contains("magisk")) return true;
+        if (lower.contains("magisk") || lower.contains("kernelsu") || lower.contains("apatch")) return true;
+        if (lower.contains("samsungpass") || lower.startsWith("com.osp.app.signin")) return true;
+        if (lower.contains("desktoplauncher") || lower.contains("desktopsystemui")) return true;
+        if (lower.startsWith("com.samsung.android.fmm") || lower.contains("safetyassurance")) return true;
         return false;
     }
 

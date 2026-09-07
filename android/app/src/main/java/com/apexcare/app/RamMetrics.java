@@ -36,13 +36,13 @@ import java.util.regex.Pattern;
  */
 public final class RamMetrics {
     private static final String TAG = "ApexRam";
-    /** Bumped to v3 so any prior 10.9 GiB cache is discarded on install. */
-    private static final String PREFS = "apex_ram_hw_v3";
+    /** Bumped to v4 so marketing-tier expansion (10/20/36/48 GB) rescans. */
+    private static final String PREFS = "apex_ram_hw_v4";
     private static final String KEY_PHYS_KB = "physical_total_kb";
     private static final String KEY_USABLE_KB = "usable_total_kb";
     private static final String KEY_SCANNED = "hw_scanned_at";
 
-    private static final int[] MARKET_GIB = {4, 6, 8, 12, 16, 18, 24, 32};
+    private static final int[] MARKET_GIB = {4, 6, 8, 10, 12, 16, 18, 20, 24, 32, 36, 48};
 
     private static final Pattern MEM_LINE =
             Pattern.compile("^(\\w+):\\s*(\\d+)\\s*kB", Pattern.CASE_INSENSITIVE);
@@ -67,12 +67,26 @@ public final class RamMetrics {
     private RamMetrics() {}
 
     public static RamMetrics sample(Context context) {
+        return sampleInternal(context, false);
+    }
+
+    /** UI / widget path — no Thread.sleep. Safe on the main thread. */
+    public static RamMetrics sampleFast(Context context) {
+        return sampleInternal(context, false);
+    }
+
+    /** JS bridge / worker — 7-sample median MemAvailable. Never call on UI. */
+    public static RamMetrics sampleThorough(Context context) {
+        return sampleInternal(context, true);
+    }
+
+    private static RamMetrics sampleInternal(Context context, boolean thorough) {
         Context app = context != null ? context.getApplicationContext() : null;
 
         long physicalKb = ensurePhysicalTotal(app);
         long usableKb = ensureUsableTotal(app);
 
-        ProcMem proc = medianProcMem();
+        ProcMem proc = thorough ? medianProcMem() : readProcMemOnce();
         AmMem am = readActivityManager(app);
 
         // Prefer marketed physical total so UI matches Samsung Device Care label
@@ -269,6 +283,22 @@ public final class RamMetrics {
         // 13.5 – 15.9 → 16 GB
         if (gib >= 13.4 && gib < 16.0) {
             return 16L * 1024L * 1024L;
+        }
+        // 18.2 – 19.95 → 20 GB
+        if (gib >= 18.15 && gib < 20.0) {
+            return 20L * 1024L * 1024L;
+        }
+        // 21.4 – 23.95 → 24 GB
+        if (gib >= 21.35 && gib < 24.0) {
+            return 24L * 1024L * 1024L;
+        }
+        // 27.5 – 31.9 → 32 GB
+        if (gib >= 27.4 && gib < 32.0) {
+            return 32L * 1024L * 1024L;
+        }
+        // 40 – 47.9 → 48 GB
+        if (gib >= 39.5 && gib < 48.0) {
+            return 48L * 1024L * 1024L;
         }
         return kb;
     }
