@@ -21,9 +21,7 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
-    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
-        tools:ignore="ProtectedPermissions" />
-    <!-- Dropped GET_TASKS (deprecated / restricted) and storage perms unused by RAM path -->
+    <!-- Dropped GET_TASKS (deprecated / restricted) and unused storage / usage-stats perms -->
 
     <queries>
         <intent>
@@ -71,9 +69,6 @@
         <!-- Samsung Multi-Window / DeX friendly -->
         <meta-data
             android:name="com.samsung.android.keepalive.density"
-            android:value="true" />
-        <meta-data
-            android:name="com.samsung.android.multidisplay.keep_process_alive"
             android:value="true" />
 
         <activity

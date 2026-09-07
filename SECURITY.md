@@ -25,11 +25,15 @@ It does **not** phone home, upload package lists, or auto-root a stock device.
 ## Protections (1.0.4)
 
 - **Package name validation** before any kill / force-stop path
-- **Root command allowlist** (`id`, `am force-stop <pkg>`, `cmd activity force-stop <pkg>`, `kill -9 <pid>`)
+- **Root command allowlist** (`id`, `am force-stop <pkg>`, `cmd activity force-stop <pkg>`, `am kill <pkg>`, `cmd activity stop-app <pkg>`, `cmd activity compact <pkg> some|full`, `am send-trim-memory <pkg> RUNNING_CRITICAL|COMPLETE`). **No SIGKILL / `kill -9`.**
 - **Expanded protect list** (One UI telephony, input, Knox, Magisk/KernelSU/APatch, launchers, Find My, Samsung Account, DeX, GMS, Wallet, Health, camera, gallery, IMS, Android Auto, Bixby, Secure Folder, Galaxy AI, Quick Share)
 - **User protect list** (validated package names, cap 80, SharedPreferences)
 - **Bulk Optimize / widget Clean skip foreground and visible** processes
-- **Widget no longer `kill -9` by PID** and no longer sweeps all `com.samsung.android.app.*` installs
+- **Widget no longer uses SIGKILL** and no longer sweeps all `com.samsung.android.app.*` installs
+- **Optimize / Safe scan auto-engage TEMP ROOT** (or Magisk su if already granted) before closing or scanning
+- **Hanging-process retry** after a failed reclaim (second pass + compact/trim)
+- **Dropped unused `PACKAGE_USAGE_STATS`** and persistence `keep_process_alive` metadata (Play Protect surface)
+- **No `/data/local/tmp/su` probe** (common riskware signature)
 - **WebView locked down**: `WebViewAssetLoader` (no file-URL access), no universal file access, mixed content never, stray HTTPS 403
 - **Widget custom actions** are explicit-component only (not exported as implicit broadcasts)
 - **UI-thread RAM sample is sleep-free** including first-open HW scan (`scanUsableRamKbFast`)
@@ -49,6 +53,8 @@ Please do **not** open PRs that demonstrate live RCE payloads against end-user d
 
 Release APKs use a **demo/sideload keystore** committed for CI reproducibility.
 Treat it as public. For distribution you control, generate your own keystore and use `android/keystore.properties` (gitignored).
+
+Play Protect often labels a first-seen sideload certificate as **Uncommon**. That is not a malware verdict. This APK is not listed on Google Play. If Play Protect blocks install, use **More details → Install anyway**. Do not disable Play Protect permanently.
 
 ## Magisk / root
 

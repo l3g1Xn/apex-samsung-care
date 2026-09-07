@@ -133,8 +133,9 @@ public class RamCleanerWidget extends AppWidgetProvider {
     private static CleanResult runForceClean(Context context) {
         CleanResult cr = new CleanResult();
         long before = readAvailBytes(context);
-        cr.hasRoot = hasRoot();
         MagiskRoot magisk = MagiskRoot.get();
+        magisk.ensureElevated(context);
+        cr.hasRoot = magisk.isGranted();
         try {
             ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
             if (am == null) return cr;
@@ -151,13 +152,7 @@ public class RamCleanerWidget extends AppWidgetProvider {
                         if (!ProtectedPackages.isValidPackage(pkg)) continue;
                         if (ProtectedPackages.isProtected(context, pkg)) continue;
                         seen.add(pkg);
-                        if (cr.hasRoot && magisk.isRealRoot()) {
-                            magisk.forceStopPackage(context, pkg);
-                        } else {
-                            try {
-                                am.killBackgroundProcesses(pkg);
-                            } catch (Exception ignored) {}
-                        }
+                        magisk.reclaimPackage(context, pkg);
                         cr.closed++;
                     }
                 }

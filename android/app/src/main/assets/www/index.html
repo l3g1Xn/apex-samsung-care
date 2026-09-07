@@ -212,7 +212,7 @@
 <div class="app" id="app"></div>
 <script>
 const VERSION = "v1.0.4";
-const VERSION_CODE = 22;
+const VERSION_CODE = 23;
 const PACKAGE_ID = "com.apexcare.app";
 const GITHUB = "https://github.com/l3g1Xn/apex-samsung-care";
 
@@ -233,6 +233,7 @@ const GITHUB = "https://github.com/l3g1Xn/apex-samsung-care";
     { packageName: "com.instagram.android", name: "Instagram", system: false, pid: 2401, importance: "cached", ramMb: 340, running: true },
     { packageName: "com.discord", name: "Discord", system: false, pid: 2502, importance: "service", ramMb: 178, running: true },
     { packageName: "com.google.android.youtube", name: "YouTube", system: false, pid: 2600, importance: "cached", ramMb: 420, running: true },
+    { packageName: "com.facebook.katana", name: "Facebook", system: false, pid: 2701, importance: "cached", ramMb: 512, running: true, hang: true },
     { packageName: "com.android.systemui", name: "System UI", system: true, pid: 900, importance: "foreground", ramMb: 120, running: true },
     { packageName: "com.google.android.gms", name: "Play services", system: true, pid: 910, importance: "service", ramMb: 160, running: true }
   ];
@@ -280,24 +281,47 @@ const GITHUB = "https://github.com/l3g1Xn/apex-samsung-care";
     },
     forceCloseApp: function (pkg) {
       if (!isValidPackage(pkg) || isProtected(pkg)) return JSON.stringify({ ok: false, error: "protected" });
+      if (!hasRoot) this.requestRootAccess();
       var before = freeGb;
+      var target = null;
+      procs.forEach(function (p) { if (p.packageName === pkg) target = p; });
+      if (target && target.hang && !target._retried) {
+        target._retried = true;
+        return JSON.stringify({ ok: false, hung: true, hasRoot: hasRoot, method: "hang_retry_needed", mem: mem() });
+      }
       procs = procs.filter(function (p) { return p.packageName !== pkg; });
       freeGb = Math.min(totalGb - 0.5, freeGb + 0.25 + Math.random() * 0.35);
-      return JSON.stringify({ ok: true, hasRoot: hasRoot, method: hasRoot ? "demo_force_stop" : "demo_kill_bg",
+      return JSON.stringify({ ok: true, hasRoot: hasRoot, hung: false, method: hasRoot ? "demo_root_reclaim" : "demo_kill_bg",
         freedMb: Math.round((freeGb - before) * 1024), mem: mem() });
     },
     closeBackgroundApp: function (p) { return this.forceCloseApp(p); },
     optimizeDevice: function () {
-      var closed = 0; var closedPackages = [];
+      if (!hasRoot) this.requestRootAccess();
+      var closed = 0; var closedPackages = []; var hungPackages = []; var retried = 0;
       var keep = [];
       procs.forEach(function (p) {
-        if (isProtected(p.packageName) || p.importance === "foreground") { keep.push(p); return; }
+        if (isProtected(p.packageName) || p.importance === "foreground" || p.importance === "visible") { keep.push(p); return; }
+        if (p.hang && !p._retried) {
+          p._retried = true; retried++; hungPackages.push(p.packageName); keep.push(p); return;
+        }
         closed++; closedPackages.push(p.packageName);
-        freeGb = Math.min(totalGb - 0.5, freeGb + 0.2);
+        freeGb = Math.min(totalGb - 0.5, freeGb + (p.ramMb || 80) / 1024);
       });
-      procs = keep;
-      return JSON.stringify({ ok: true, closed: closed, closedPackages: closedPackages, hasRoot: hasRoot,
-        method: hasRoot ? "demo_root_force_stop" : "demo_kill_background", mem: mem() });
+      // hang retry pass
+      var keep2 = [];
+      keep.forEach(function (p) {
+        if (p.hang && p._retried && !isProtected(p.packageName) && p.importance !== "foreground") {
+          retried++; closed++; closedPackages.push(p.packageName);
+          hungPackages = hungPackages.filter(function (x) { return x !== p.packageName; });
+          freeGb = Math.min(totalGb - 0.5, freeGb + (p.ramMb || 80) / 1024);
+          return;
+        }
+        keep2.push(p);
+      });
+      procs = keep2;
+      return JSON.stringify({ ok: true, closed: closed, retried: retried, hung: hungPackages.length,
+        closedPackages: closedPackages, hungPackages: hungPackages, hasRoot: hasRoot, realRoot: realRoot,
+        elevated: true, mode: mode, method: "demo_root_reclaim+hang_retry", mem: mem() });
     },
     forceCloseIfOpen: function (json) {
       var arr = [];
@@ -313,12 +337,27 @@ const GITHUB = "https://github.com/l3g1Xn/apex-samsung-care";
     },
     scanInstalledApps: function () { return this.getRunningProcesses(); },
     runHeuristicScan: function () {
+      if (!hasRoot) this.requestRootAccess();
+      var findings = [];
+      var blobs = 0;
+      procs.forEach(function (p) {
+        if (isProtected(p.packageName) || p.importance === "foreground") return;
+        if ((p.importance === "cached" || p.hang) && (p.ramMb || 0) >= 80) {
+          blobs++;
+          findings.push({ title: p.hang ? "Hanging cached process" : "Cached RAM blob",
+            detail: (p.ramMb || 0) + " MB still resident in cache.",
+            severity: (p.ramMb || 0) >= 250 ? "high" : "medium", kind: "ram_blob",
+            packageName: p.packageName, running: true });
+        }
+      });
+      findings.push({ title: "Sideloaded apps present", detail: "3 packages without Play Store installer (demo).",
+        severity: "info", kind: "sideload", packageName: "com.example.demo", running: false });
       return JSON.stringify({
-        ok: true, score: 88, packages: 312, userApps: 94, systemApps: 218,
+        ok: true, score: Math.max(40, 90 - findings.length * 4), packages: 312, userApps: 94, systemApps: 218,
         disabled: 0, sideloaded: 3, debuggable: 0, highRiskPermHits: 0, outdatedTarget: 4,
-        findingCount: 1, malwareSignals: 0, puaSignals: 0,
-        findings: [{ title: "Sideloaded apps present", detail: "3 packages without Play Store installer (demo).", severity: "info", kind: "sideload", packageName: "com.example.demo", running: false }],
-        openRiskPackages: [], hasRoot: hasRoot, scannedAt: Date.now()
+        findingCount: findings.length, malwareSignals: 0, puaSignals: 0, ramBlobs: blobs,
+        findings: findings, openRiskPackages: [], hasRoot: hasRoot, realRoot: realRoot,
+        elevated: true, mode: mode, scannedAt: Date.now()
       });
     },
     getDeviceInfo: function () {
@@ -623,15 +662,25 @@ function runSafeScan() {
   }
   state.safe.scanning = true;
   state.safe.error = null;
-  state.safe.progress = 12;
-  state.safe.phase = "Enumerating packages…";
+  state.safe.progress = 8;
+  state.safe.phase = "Engaging temp / Magisk root…";
   state.safe.autoClosed = 0;
   render();
+  try {
+    if (!state.hasRoot && typeof ApexNative.requestRootAccess === "function") {
+      var sg = JSON.parse(ApexNative.requestRootAccess());
+      state.hasRoot = !!(sg.hasRoot || sg.ok);
+      state.realRoot = !!sg.realRoot;
+      state.rootMode = sg.mode || "userspace_temp";
+      if (sg.userspaceRemainingSec) state.userspaceRemainingSec = sg.userspaceRemainingSec;
+    }
+  } catch (sge) {}
   var steps = [
-    [28, "Checking install sources…"],
-    [48, "Scoring PUA / malware patterns…"],
-    [68, "Checking which risks are open…"],
-    [88, "Auto-closing open threats…"]
+    [22, "Enumerating packages…"],
+    [40, "Checking install sources…"],
+    [58, "Scoring RAM blobs / leftover processes…"],
+    [76, "Checking which risks are open…"],
+    [90, "Auto-closing open threats…"]
   ];
   var i = 0;
   function tick() {
@@ -737,10 +786,12 @@ function runOptimize(label) {
   render();
 
   var phases = [
-    [160, "Checking root force-stop…"],
-    [340, "Force-closing background apps…"],
-    [560, "Killing leftover processes…"],
-    [740, "Refreshing memory stats…"]
+    [140, "Engaging temp / Magisk root…"],
+    [280, "Official killBackgroundProcesses…"],
+    [420, "Root force-stop + stop-app + compact…"],
+    [560, "Retry hanging / failed closes…"],
+    [700, "Trim leftover RAM blobs…"],
+    [840, "Refreshing Device Care RAM…"]
   ];
   var pi = 0;
   function nextPhase() {
@@ -759,8 +810,18 @@ function runOptimize(label) {
     var closed = 0;
     var freedMb = 0;
     var method = "";
+    var res = null;
     try {
       if (hasNative && typeof ApexNative.optimizeDevice === "function") {
+        if (!state.hasRoot && typeof ApexNative.requestRootAccess === "function") {
+          try {
+            var g = JSON.parse(ApexNative.requestRootAccess());
+            state.hasRoot = !!(g.hasRoot || g.ok);
+            state.realRoot = !!g.realRoot;
+            state.rootMode = g.mode || "userspace_temp";
+            if (g.userspaceRemainingSec) state.userspaceRemainingSec = g.userspaceRemainingSec;
+          } catch (eg) {}
+        }
         var res = JSON.parse(ApexNative.optimizeDevice());
         if (res) {
           closed = res.closed || 0;
@@ -796,9 +857,13 @@ function runOptimize(label) {
     }
     state.optimizing = false;
     state.closing = false;
+    var extra = "";
+    try {
+      extra = (res && res.retried ? " · retried " + res.retried : "") + (res && res.hung ? " · hung " + res.hung : "");
+    } catch (ex) {}
     state.cleanPhase = closed > 0
-      ? "Done · force-closed " + closed + (freedMb ? " · +" + Math.round(freedMb) + " MB free" : "") + (method ? " · " + method : "")
-      : "Done · memory refreshed";
+      ? "Done · reclaimed " + closed + extra + (freedMb ? " · +" + Math.round(freedMb) + " MB free" : "") + (method ? " · " + method : "")
+      : "Done · memory refreshed" + extra;
     state.score = computeHealthScore();
     pushHistory(label || "Optimize complete", state.cleanPhase);
     render();
@@ -1039,8 +1104,11 @@ function morePanel() {
     '<div class="card"><h2>Protect list</h2>' +
       '<p class="muted">Core OS, telephony, input, Knox, Magisk/KernelSU, launchers, and Apex itself are never force-stopped. ' + CORE_PROTECT.size + ' exact packages + prefix rules.</p>' +
       '<p class="mono mt" style="max-height:7rem;overflow:auto">' + Array.from(CORE_PROTECT).slice(0, 24).join(" · ") + ' …</p></div>' +
+    '<div class="card"><h2>Play Protect</h2>' +
+      '<p class="muted">This is a <strong style="color:var(--fg)">GitHub sideload</strong> signed with the demo cert. Play Protect often labels first-seen sideload certs as <em>Uncommon</em> — that is not a malware verdict. Apex Care does not phone home, does not use SIGKILL, and only force-stops allowlisted non-protected packages after you start Optimize or Safe scan.</p>' +
+      '<p class="faint mt">If Play Protect blocks install: More details → Install anyway. Do not turn scanning off permanently.</p></div>' +
     '<div class="card"><h2>About</h2>' +
-      '<p class="muted">' + VERSION + ' (code ' + VERSION_CODE + '). Device Care RAM model · protected core packages · shell command allowlist. Optimize force-closes non-vital apps only.</p>' +
+      '<p class="muted">' + VERSION + ' (code ' + VERSION_CODE + '). Device Care RAM model · protected core packages · root command allowlist. Optimize auto-engages TEMP ROOT, force-stops non-vital apps, retries hanging processes, then compact/trim.</p>' +
       '<p class="faint mt">Native bridge: ' + (isDemoBridge ? "demo (preview)" : hasNative ? "connected" : "unavailable") + '</p></div>';
 }
 

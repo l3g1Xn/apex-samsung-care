@@ -1,5 +1,6 @@
 package com.apexcare.app;
 
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -53,8 +54,7 @@ public final class MagiskRoot {
             "/vendor/bin/su",
             "/debug_ramdisk/su",
             "/system_ext/bin/su",
-            "/su/bin/su",
-            "/data/local/tmp/su"
+            "/su/bin/su"
     };
 
     private static final String[] MAGISK_PACKAGES = {
@@ -120,6 +120,27 @@ public final class MagiskRoot {
         if (isUserspaceActive()) return true;
         if (realRoot.get() && shellAlive()) return true;
         return probeSuQuick(2500);
+    }
+
+    /**
+     * Fast elevation for Optimize / Safe scan: Magisk su if already granted,
+     * otherwise instant userspace TEMP ROOT. Does not wait on a Superuser dialog.
+     */
+    public Result ensureElevated(Context context) {
+        Context app = context != null ? context.getApplicationContext() : null;
+        if (isRealRoot()) {
+            return ok(MODE_MAGISK_SU, getSuPath(), "Magisk su already granted.");
+        }
+        if (isUserspaceActive()) {
+            return ok(MODE_USERSPACE, getSuPath(), "Userspace TEMP ROOT already active.");
+        }
+        refreshMagiskAppInfo(app);
+        String pkg = magiskPkg.get();
+        boolean magiskApp = pkg != null && !pkg.isEmpty();
+        return activateUserspace(app, magiskApp,
+                magiskApp
+                        ? "TEMP ROOT auto-engaged for this run (30 min). Magisk Superuser can still be granted from Care."
+                        : "TEMP ROOT auto-engaged for this run (30 min) — no Magisk required.");
     }
 
     /** Full grant — Magisk app IPC + su handshake + userspace temp fallback. */
@@ -283,7 +304,40 @@ public final class MagiskRoot {
         return a || b;
     }
 
-    /** Allow only narrow, known-safe root commands used by Apex Care. */
+    /**
+     * Deeper reclaim after a failed / partial close. Official APIs first,
+     * then allowlisted root helpers (no SIGKILL). Compact + trim release GPU/CPU
+     * pages the kernel already marked reclaimable.
+     */
+    public boolean reclaimPackage(Context context, String packageName) {
+        if (!ProtectedPackages.isValidPackage(packageName)) return false;
+        if (ProtectedPackages.isProtected(context, packageName)) return false;
+        boolean any = false;
+        if (context != null) {
+            try {
+                ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+                if (am != null) {
+                    am.killBackgroundProcesses(packageName);
+                    any = true;
+                }
+            } catch (Exception ignored) {}
+        }
+        if (isRealRoot()) {
+            any = forceStopPackage(context, packageName) || any;
+            any = run("am kill " + packageName) || any;
+            any = run("cmd activity stop-app " + packageName) || any;
+            any = run("cmd activity compact " + packageName + " some") || any;
+            any = run("am send-trim-memory " + packageName + " RUNNING_CRITICAL") || any;
+        } else if (isUserspaceActive() && context != null) {
+            try {
+                ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+                if (am != null) am.killBackgroundProcesses(packageName);
+            } catch (Exception ignored) {}
+        }
+        return any;
+    }
+
+    /** Allow only narrow, known-safe root commands used by Apex Care. No SIGKILL. */
     public static boolean isSafeRootCommand(String command) {
         String c = command.trim();
         if (c.isEmpty() || c.length() > 240) return false;
@@ -306,13 +360,30 @@ public final class MagiskRoot {
             return ProtectedPackages.isValidPackage(
                     c.substring("cmd activity force-stop ".length()).trim());
         }
-        if (c.startsWith("kill -9 ")) {
-            String pid = c.substring("kill -9 ".length()).trim();
-            if (pid.isEmpty() || pid.length() > 10) return false;
-            for (int i = 0; i < pid.length(); i++) {
-                if (!Character.isDigit(pid.charAt(i))) return false;
-            }
-            return true;
+        if (c.startsWith("am kill ")) {
+            return ProtectedPackages.isValidPackage(c.substring("am kill ".length()).trim());
+        }
+        if (c.startsWith("cmd activity stop-app ")) {
+            return ProtectedPackages.isValidPackage(
+                    c.substring("cmd activity stop-app ".length()).trim());
+        }
+        if (c.startsWith("cmd activity compact ")) {
+            String rest = c.substring("cmd activity compact ".length()).trim();
+            int sp = rest.lastIndexOf(' ');
+            if (sp <= 0) return false;
+            String pkg = rest.substring(0, sp).trim();
+            String level = rest.substring(sp + 1).trim();
+            return ProtectedPackages.isValidPackage(pkg)
+                    && ("some".equals(level) || "full".equals(level));
+        }
+        if (c.startsWith("am send-trim-memory ")) {
+            String rest = c.substring("am send-trim-memory ".length()).trim();
+            int sp = rest.lastIndexOf(' ');
+            if (sp <= 0) return false;
+            String pkg = rest.substring(0, sp).trim();
+            String level = rest.substring(sp + 1).trim();
+            return ProtectedPackages.isValidPackage(pkg)
+                    && ("RUNNING_CRITICAL".equals(level) || "COMPLETE".equals(level));
         }
         return false;
     }
@@ -407,19 +478,6 @@ public final class MagiskRoot {
             if (f.exists()) list.add(c);
         }
         list.add("su");
-        // which su
-        try {
-            Process p = new ProcessBuilder("sh", "-c", "command -v su 2>/dev/null; which su 2>/dev/null")
-                    .redirectErrorStream(true).start();
-            StreamGobbler g = new StreamGobbler(p.getInputStream());
-            g.start();
-            p.waitFor(2, TimeUnit.SECONDS);
-            g.join(500);
-            for (String line : g.text.split("\n")) {
-                String path = line.trim();
-                if (path.startsWith("/") && !list.contains(path)) list.add(0, path);
-            }
-        } catch (Exception ignored) {}
         return list;
     }
 

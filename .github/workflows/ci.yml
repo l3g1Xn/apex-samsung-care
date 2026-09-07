@@ -43,7 +43,7 @@ jobs:
       - name: Guard - no shell injection helpers
         run: |
           set -euo pipefail
-          grep -q "forceStopPackage" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
+          grep -q "forceStopPackage" android/app/src/main/java/com/apexcare/app/MagiskRoot.java
           grep -q "isSafeRootCommand" android/app/src/main/java/com/apexcare/app/MagiskRoot.java
           grep -q "isValidPackage" android/app/src/main/java/com/apexcare/app/ProtectedPackages.java
           grep -q "sampleFast" android/app/src/main/java/com/apexcare/app/RamMetrics.java
@@ -54,9 +54,14 @@ jobs:
           grep -q "USER_PREFS" android/app/src/main/java/com/apexcare/app/ProtectedPackages.java
           grep -q "IMPORTANCE_VISIBLE" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
           grep -q "addUserProtect" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
+          grep -q "ensureElevated" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
+          grep -q "reclaimPackage" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
+          grep -q "ensureElevated" android/app/src/main/java/com/apexcare/app/MagiskRoot.java
           ! grep -q "setAllowUniversalAccessFromFileURLs(true)" android/app/src/main/java/com/apexcare/app/MainActivity.java
           ! grep -q "ACTION_CLEAN_RAM" android/app/src/main/AndroidManifest.xml
-          ! grep -F 'kill -9 " + p.pid' android/app/src/main/java/com/apexcare/app/RamCleanerWidget.java
+          ! grep -R -F 'kill -9' android/app/src/main/java
+          ! grep -R -F '/data/local/tmp/su' android/app/src/main/java
+          ! grep -q "PACKAGE_USAGE_STATS" android/app/src/main/AndroidManifest.xml
 
       - name: Scrub Actions logs
         if: always()

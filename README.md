@@ -26,7 +26,7 @@ v1.0.4 is the **only** GitHub Release. Older APKs and tags are not published.
 2. Install the signed universal APK
 3. Open, Grant Temporary Root (optional), Optimize / Clean
 
-Package `com.apexcare.app` - versionCode **22** / **1.0.4** - minSdk **24** / targetSdk **34** - signed v1+v2+v3
+Package `com.apexcare.app` - versionCode **23** / **1.0.4** - minSdk **24** / targetSdk **34** - signed v1+v2+v3
 
 ---
 
@@ -44,8 +44,11 @@ Package `com.apexcare.app` - versionCode **22** / **1.0.4** - minSdk **24** / ta
 
 Incremental - **not** a Full Send rebrand. Sideload over any older Apex Care (same demo cert, higher versionCode).
 
+- Optimize and Safe scan **auto-engage TEMP ROOT** (Magisk su if already granted) before reclaim
+- Hanging / failed-close **retry pass** plus `am kill` / `stop-app` / compact / trim (no SIGKILL)
+- Cached RAM-blob findings on Safe scan
+- Play Protect: dropped unused `PACKAGE_USAGE_STATS`, no `/data/local/tmp/su`, no `kill -9`
 - Bulk Optimize and widget Clean **skip foreground / visible** processes (low-end One UI + Flip cover)
-- Widget no longer `kill -9` by PID and no longer sweeps every `com.samsung.android.app.*` install
 - User protect list (validated packages, cap 80) honored on every force-stop path
 - Protect list: camera, gallery, Samsung Account, Google Wallet, Messages, Secure Folder, Bixby, Quick Share, Android Auto, IMS, Galaxy AI
 - Optimize / batch close sample RAM with `sampleFast` (no 7x sleep after a bulk pass)
