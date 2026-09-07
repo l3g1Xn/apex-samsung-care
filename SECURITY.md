@@ -6,10 +6,10 @@
 
 | Version | Supported |
 |---------|-----------|
-| 1.0.4+  | Yes — current maintenance line |
-| 1.0.3   | Yes until 1.0.4 APK is tagged |
-| 1.0.2   | Yes until a later APK is tagged |
-| 1.0.1   | Yes until 1.0.2 APK is tagged |
+| 1.0.4   | Yes — current published APK |
+| 1.0.3   | Source-only — upgrade to 1.0.4 |
+| 1.0.2   | Source-only — upgrade to 1.0.4 |
+| 1.0.1   | Superseded — upgrade to 1.0.4 (same demo cert) |
 | 1.0.0   | Superseded — upgrade recommended |
 | < 1.0.0 | No |
 

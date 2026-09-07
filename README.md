@@ -18,15 +18,15 @@ Sideloaded Samsung device care for **One UI**. Accurate free RAM (Device Care mo
 
 ### Download
 
-**[Apex Care v1.0.1](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v1.0.1)** · [ApexCare-v1.0.1.apk](https://github.com/l3g1Xn/apex-samsung-care/releases/download/v1.0.1/ApexCare-v1.0.1.apk)
+**[Apex Care v1.0.4](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v1.0.4)** · [ApexCare-v1.0.4.apk](https://github.com/l3g1Xn/apex-samsung-care/releases/download/v1.0.4/ApexCare-v1.0.4.apk)
 
-Prior: [v1.0.0 Full Send](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v1.0.0)
+Prior: [v1.0.1](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v1.0.1) · [v1.0.0 Full Send](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v1.0.0)
 
 1. Uninstall any older Apex Care if Android asks  
 2. Install the signed universal APK  
 3. Open → Grant Temporary Root (optional) · Optimize / Clean  
 
-Package `com.apexcare.app` · latest APK versionCode **19** / **1.0.1** · source **22** / **1.0.4** · minSdk **24** / targetSdk **34** · signed v1+v2+v3
+Package `com.apexcare.app` · latest APK versionCode **22** / **1.0.4** · minSdk **24** / targetSdk **34** · signed v1+v2+v3
 
 ---
 
@@ -40,9 +40,9 @@ Package `com.apexcare.app` · latest APK versionCode **19** / **1.0.1** · sourc
 | **Widget** | Free % primary · used / available GB · Clean action |
 | **Safe** | On-device heuristics · debuggable / outdated SDK signals |
 
-## v1.0.4 maintenance (source)
+## v1.0.4 (published)
 
-Incremental — **not** a Full Send rebrand. Latest tagged APK remains [v1.0.1](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v1.0.1) until a later tag is cut.
+Incremental — **not** a Full Send rebrand. Sideload over v1.0.1 (same demo cert, higher versionCode).
 
 - Bulk Optimize and widget Clean **skip foreground / visible** processes (low-end One UI + Flip cover)
 - Widget no longer `kill -9` by PID and no longer sweeps every `com.samsung.android.app.*` install
@@ -52,9 +52,9 @@ Incremental — **not** a Full Send rebrand. Latest tagged APK remains [v1.0.1](
 - PSS lookups capped at 80 running packages for low-RAM A-series
 - CI greps for the new guards; **does not** wipe prior releases
 
-## v1.0.3 maintenance (source, merged untagged)
+## v1.0.3 maintenance (merged)
 
-Incremental — **not** a Full Send rebrand. Latest tagged APK remains [v1.0.1](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v1.0.1) until a later tag is cut.
+Incremental — **not** a Full Send rebrand.
 
 - First-open HW RAM scan is **sleep-free** on the UI thread (`scanUsableRamKbFast`); thorough median stays on the worker
 - Widget Clean runs on a **background executor** (no `Thread.sleep` on the main looper)
