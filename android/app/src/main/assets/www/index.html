@@ -944,7 +944,7 @@ function home() {
     '<button class="stat" onclick="window.AC.tab(\'safe\')" style="text-align:left;width:100%">' +
       '<div class="t">Safe score</div>' +
       '<div class="v">' + (safeScore != null ? safeScore : "—") + '</div>' +
-      '<div class="s">' + (state.safe.ok ? (malware + " malware · " + pua + " PUA" + (state.safe.autoClosed ? " · auto-closed " + state.safe.autoClosed : "")) : "Tap to scan") + '</div>' +
+      '<div class="s">' + (state.safe.ok ? (malware + " blobs · " + pua + " extra" + (state.safe.autoClosed ? " · auto-closed " + state.safe.autoClosed : "")) : "Tap to scan") + '</div>' +
       '<div class="bar"><i style="width:' + (safeScore != null ? safeScore : 0) + '%"></i></div>' +
     '</button>' +
     '<div class="card">' +
@@ -978,7 +978,7 @@ function safePanel() {
     '<div class="card center">' +
       (s.score != null ? ring(s.score, "Safe", sub)
         : '<div class="ring-wrap"><div class="ring" style="display:flex;align-items:center;justify-content:center"><div class="mid"><div class="lbl">Safe</div><div class="sub">Local heuristics</div></div></div></div>') +
-      '<p class="muted" style="margin:.5rem 0 0">On-device malware / PUA scan. Open threats can be force-closed automatically.</p>' +
+      '<p class="muted" style="margin:.5rem 0 0">Device Care heuristics: RAM blobs, leftover processes, install source. Running high/medium items can be force-closed.</p>' +
       '<div class="toggle-row mt">' +
         '<div style="text-align:left"><div style="font-size:13px;font-weight:500">Auto-close open risks</div>' +
         '<div class="faint">Force-close high/medium findings that are running</div></div>' +
@@ -996,8 +996,8 @@ function safePanel() {
       '<div class="grid2">' +
         '<div class="stat"><div class="t">Packages</div><div class="v">' + s.stats.packages + '</div><div class="s">' + s.stats.userApps + ' user · ' + s.stats.systemApps + ' system</div></div>' +
         '<div class="stat"><div class="t">Signals</div><div class="v">' + s.stats.findingCount + '</div><div class="s">' + s.stats.sideloaded + ' sideload · ' + s.stats.debuggable + ' debug</div></div>' +
-        '<div class="stat"><div class="t">Malware signals</div><div class="v" style="color:var(--danger)">' + (s.stats.malwareSignals || 0) + '</div><div class="s">Weaponized perms</div></div>' +
-        '<div class="stat"><div class="t">PUA signals</div><div class="v" style="color:var(--warn)">' + (s.stats.puaSignals || 0) + '</div><div class="s">Fake cleaners</div></div>' +
+        '<div class="stat"><div class="t">RAM blobs</div><div class="v" style="color:var(--warn)">' + (s.stats.ramBlobs || s.stats.malwareSignals || 0) + '</div><div class="s">Cached leftovers</div></div>' +
+        '<div class="stat"><div class="t">Sideload</div><div class="v">' + (s.stats.sideloaded || 0) + '</div><div class="s">Non-Play installers</div></div>' +
       '</div>'
     ) : '') +
     (s.ok ? (
