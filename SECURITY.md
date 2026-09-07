@@ -52,10 +52,11 @@ Please do **not** open PRs that demonstrate live RCE payloads against end-user d
 
 ## Sideload signing
 
-Release APKs use a **demo/sideload keystore** committed for CI reproducibility.
-Treat it as public. For distribution you control, generate your own keystore and use `android/keystore.properties` (gitignored).
+Release APKs use a **sideload keystore** committed for CI reproducibility (rotated 2026-09 — previous `apexcare1000` cert is retired). Treat it as public. **Uninstall older Apex Care before installing** — Android will not upgrade across certificates.
 
-Play Protect often labels a first-seen sideload certificate as **Uncommon**. That is not a malware verdict. This APK is not listed on Google Play. If Play Protect blocks install, use **More details → Install anyway**. Do not disable Play Protect permanently.
+Play Protect often labels a first-seen sideload certificate as **Uncommon / PUP**. That is not a malware verdict. This APK is not listed on Google Play. If Play Protect blocks install, use **More details → Install anyway**. Do not disable Play Protect permanently.
+
+`QUERY_ALL_PACKAGES` is not requested (Play Protect PUP surface). `INTERNET` is declared because Samsung WebView crashes on open without it; Chromium network fetches are intercepted 403.
 
 ## Magisk / root
 

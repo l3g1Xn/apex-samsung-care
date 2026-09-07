@@ -16,11 +16,11 @@
         android:anyDensity="true"
         android:resizeable="true" />
 
-    <!-- No INTERNET: WebView is offline (asset loader + 403 interceptor). Magisk probe is local. -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
-        tools:ignore="QueryAllPackagesPermission" />
+    <!-- INTERNET: Samsung WebView/Chromium throws SecurityException on open without it.
+         Real fetches are blocked (blockNetworkLoads + interceptor 403). -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
-    <!-- Dropped GET_TASKS (deprecated / restricted) and unused storage / usage-stats perms -->
+    <!-- Broad package-visibility permission omitted (Play Protect PUP surface). Launcher queries cover user apps. -->
 
     <queries>
         <intent>
@@ -53,7 +53,7 @@
         android:theme="@style/Theme.ApexCare"
         android:hardwareAccelerated="true"
         android:largeHeap="true"
-        android:extractNativeLibs="false"
+        android:extractNativeLibs="true"
         android:usesCleartextTraffic="false"
         android:resizeableActivity="true"
         android:enableOnBackInvokedCallback="true"

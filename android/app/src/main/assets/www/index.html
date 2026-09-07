@@ -212,7 +212,7 @@
 <div class="app" id="app"></div>
 <script>
 const VERSION = "v1.0.4";
-const VERSION_CODE = 24;
+const VERSION_CODE = 25;
 const PACKAGE_ID = "com.apexcare.app";
 const GITHUB = "https://github.com/l3g1Xn/apex-samsung-care";
 
@@ -1115,7 +1115,7 @@ function morePanel() {
       '<p class="muted">Core OS, telephony, input, Knox, Magisk/KernelSU, launchers, and Apex itself are never force-stopped. ' + CORE_PROTECT.size + ' exact packages + prefix rules.</p>' +
       '<p class="mono mt" style="max-height:7rem;overflow:auto">' + Array.from(CORE_PROTECT).slice(0, 24).join(" · ") + ' …</p></div>' +
     '<div class="card"><h2>Play Protect</h2>' +
-      '<p class="muted">This is a <strong style="color:var(--fg)">GitHub sideload</strong> signed with the demo cert. Play Protect often labels first-seen sideload certs as <em>Uncommon</em> — that is not a malware verdict. Apex Care has no INTERNET permission, does not phone home, does not use SIGKILL, and only force-stops allowlisted non-protected packages after you start Optimize or Safe scan.</p>' +
+      '<p class="muted">This is a <strong style="color:var(--fg)">GitHub sideload</strong>. Play Protect often labels first-seen sideload certs as <em>Uncommon</em> — that is not a malware verdict. v1.0.4 (code 25) uses a <strong style="color:var(--fg)">rotated signing cert</strong> — uninstall any older Apex Care first, then install this APK. WebView loads offline; Chromium still needs the INTERNET permission declared or One UI crashes on open. Real network fetches are blocked.</p>' +
       '<p class="faint mt">If Play Protect blocks install: More details → Install anyway. Do not turn scanning off permanently.</p></div>' +
     '<div class="card"><h2>About</h2>' +
       '<p class="muted">' + VERSION + ' (code ' + VERSION_CODE + '). Device Care RAM model · protected core + NPU/GPU. Optimize and Safe scan auto-engage TEMP ROOT every run, retry hanging closes, then CPU kill-all / compact-trim (NPU HALs stay up).</p>' +

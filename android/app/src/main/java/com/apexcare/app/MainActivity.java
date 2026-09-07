@@ -1,11 +1,14 @@
 package com.apexcare.app;
 
 import android.annotation.SuppressLint;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.ConsoleMessage;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -14,6 +17,8 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
+import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
@@ -32,14 +37,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Local packaged UI only. Asset loader serves https://appassets.androidplatform.net
- * so we never enable file-URL cross-origin. All other network is intercepted 403.
+ * Local packaged UI only. Primary load is {@code loadDataWithBaseURL} so Samsung
+ * WebView never has to hit the network stack for first paint. Asset loader still
+ * intercepts the dummy HTTPS origin. INTERNET is declared because Chromium on
+ * One UI throws {@code SecurityException} without it even for local content.
  */
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "ApexCare";
     private static final String ASSET_HTTPS =
             "https://appassets.androidplatform.net/assets/www/index.html";
-    private static final String ASSET_FILE = "file:///android_asset/www/index.html";
 
     private WebView webView;
     private WebViewAssetLoader assetLoader;
@@ -53,41 +59,71 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
-        // Fast path on UI thread — never Thread.sleep here (ANR on low-end One UI)
+        try {
+            WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        } catch (Throwable ignored) {}
         try {
             RamMetrics.sampleFast(this);
-        } catch (Exception ignored) {}
+        } catch (Throwable ignored) {}
         ramWorker.execute(() -> {
             try {
                 RamMetrics.sampleThorough(MainActivity.this);
-            } catch (Exception ignored) {}
+            } catch (Throwable ignored) {}
         });
-        setContentView(R.layout.activity_main);
+
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(0xFF07080A);
+        setContentView(root);
+
+        try {
+            bootWebView(root);
+        } catch (Throwable t) {
+            Log.e(TAG, "WebView bootstrap failed", t);
+            showWebViewMissing(root, t);
+        }
+    }
+
+    @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
+    private void bootWebView(FrameLayout root) {
+        // Do not inflate WebView from XML — Samsung provider updates crash inflation.
+        webView = new WebView(this);
+        webView.setId(View.generateViewId());
+        root.addView(webView, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         assetLoader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
                 .build();
 
-        webView = findViewById(R.id.webview);
-        WebView.setWebContentsDebuggingEnabled(false);
+        try {
+            WebView.setWebContentsDebuggingEnabled(false);
+        } catch (Throwable ignored) {}
+
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        settings.setDatabaseEnabled(false);
+        try {
+            settings.setDatabaseEnabled(false);
+        } catch (Throwable ignored) {}
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
-        settings.setAllowUniversalAccessFromFileURLs(false);
-        settings.setAllowFileAccessFromFileURLs(false);
+        try {
+            settings.setAllowUniversalAccessFromFileURLs(false);
+            settings.setAllowFileAccessFromFileURLs(false);
+        } catch (Throwable ignored) {}
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
         settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setLoadsImagesAutomatically(true);
         settings.setBlockNetworkImage(true);
-        // AssetLoader needs the request to reach shouldInterceptRequest
+        // false: loadDataWithBaseURL must reach the document. Interceptor 403s real net.
         settings.setBlockNetworkLoads(false);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        if (android.os.Build.VERSION.SDK_INT >= 26) {
-            settings.setSafeBrowsingEnabled(true);
+        if (Build.VERSION.SDK_INT >= 21) {
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        }
+        if (Build.VERSION.SDK_INT >= 26) {
+            try {
+                settings.setSafeBrowsingEnabled(false);
+            } catch (Throwable ignored) {}
         }
         settings.setGeolocationEnabled(false);
         settings.setSupportMultipleWindows(false);
@@ -100,12 +136,10 @@ public class MainActivity extends AppCompatActivity {
                 if (request == null || request.getUrl() == null) {
                     return blocked();
                 }
-                WebResourceResponse served = assetLoader.shouldInterceptRequest(request.getUrl());
-                if (served != null) return served;
-                String host = request.getUrl().getHost();
-                if (host != null && host.equals("appassets.androidplatform.net")) {
-                    return blocked();
-                }
+                try {
+                    WebResourceResponse served = assetLoader.shouldInterceptRequest(request.getUrl());
+                    if (served != null) return served;
+                } catch (Throwable ignored) {}
                 return blocked();
             }
 
@@ -114,7 +148,6 @@ public class MainActivity extends AppCompatActivity {
                 if (request == null || request.getUrl() == null) return true;
                 String u = request.getUrl().toString();
                 if (u.startsWith("https://appassets.androidplatform.net/assets/")) return false;
-                if (u.startsWith("file:///android_asset/")) return false;
                 if (u.startsWith("https://github.com/l3g1Xn/apex-samsung-care")) {
                     try {
                         startActivity(new android.content.Intent(
@@ -127,13 +160,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request != null && request.isForMainFrame()) {
-                    Log.e(TAG, "WebView error: " + error.getDescription());
-                    // Fallback to file asset if https asset loader path fails
-                    String failing = request.getUrl() != null ? request.getUrl().toString() : "";
-                    if (failing.startsWith("https://appassets.androidplatform.net")
-                            && webView != null) {
-                        new Handler(Looper.getMainLooper()).post(() -> loadFromAssets());
-                    }
+                    Log.e(TAG, "WebView error: " + (error != null ? error.getDescription() : ""));
+                    new Handler(Looper.getMainLooper()).post(() -> loadFromAssets());
                 }
             }
 
@@ -153,20 +181,27 @@ public class MainActivity extends AppCompatActivity {
         });
         webView.setBackgroundColor(0xFF07080A);
         webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        webView.loadUrl(ASSET_HTTPS);
 
-        ViewCompat.setOnApplyWindowInsetsListener(webView, (v, insets) -> {
-            Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(sys.left, sys.top, sys.right, sys.bottom);
-            return insets;
-        });
+        try {
+            ViewCompat.setOnApplyWindowInsetsListener(webView, (v, insets) -> {
+                Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+                v.setPadding(sys.left, sys.top, sys.right, sys.bottom);
+                return insets;
+            });
+        } catch (Throwable ignored) {}
+
+        loadFromAssets();
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (webView != null && webView.canGoBack()) {
-                    webView.goBack();
-                    return;
+                if (webView != null) {
+                    try {
+                        if (webView.canGoBack()) {
+                            webView.goBack();
+                            return;
+                        }
+                    } catch (Throwable ignored) {}
                 }
                 setEnabled(false);
                 getOnBackPressedDispatcher().onBackPressed();
@@ -175,7 +210,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    /** Fallback without file:// — keeps allowFileAccess=false. */
+    /** Primary UI path — never loadUrl(https) (Samsung SecurityException without net). */
     private void loadFromAssets() {
         if (webView == null) return;
         try (InputStream in = getAssets().open("www/index.html");
@@ -190,10 +225,25 @@ public class MainActivity extends AppCompatActivity {
                     "text/html",
                     "utf-8",
                     null);
-            Log.i(TAG, "Loaded UI via loadDataWithBaseURL fallback");
+            Log.i(TAG, "Loaded UI via loadDataWithBaseURL");
         } catch (Exception e) {
-            Log.e(TAG, "asset fallback failed", e);
+            Log.e(TAG, "asset load failed", e);
         }
+    }
+
+    private void showWebViewMissing(FrameLayout root, Throwable t) {
+        TextView tv = new TextView(this);
+        tv.setTextColor(0xFFEEF1F4);
+        tv.setPadding(48, 96, 48, 48);
+        tv.setTextSize(16);
+        tv.setGravity(Gravity.CENTER);
+        tv.setText("Apex Care needs Android System WebView.\n\n"
+                + "Settings → Apps → Android System WebView → Enable\n\n"
+                + "Then reopen Apex Care.\n\n"
+                + (t != null && t.getMessage() != null ? t.getMessage() : ""));
+        root.removeAllViews();
+        root.addView(tv, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
 
     private static WebResourceResponse blocked() {
@@ -209,15 +259,23 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (webView != null) webView.onResume();
+        if (webView != null) {
+            try {
+                webView.onResume();
+            } catch (Throwable ignored) {}
+        }
         try {
             RamMetrics.sampleFast(this);
-        } catch (Exception ignored) {}
+        } catch (Throwable ignored) {}
     }
 
     @Override
     protected void onPause() {
-        if (webView != null) webView.onPause();
+        if (webView != null) {
+            try {
+                webView.onPause();
+            } catch (Throwable ignored) {}
+        }
         super.onPause();
     }
 
@@ -225,12 +283,14 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         ramWorker.shutdownNow();
         if (webView != null) {
-            webView.removeJavascriptInterface("ApexNative");
-            webView.loadUrl("about:blank");
-            webView.stopLoading();
-            webView.setWebViewClient(null);
-            webView.setWebChromeClient(null);
-            webView.destroy();
+            try {
+                webView.removeJavascriptInterface("ApexNative");
+                webView.loadUrl("about:blank");
+                webView.stopLoading();
+                webView.setWebViewClient(null);
+                webView.setWebChromeClient(null);
+                webView.destroy();
+            } catch (Throwable ignored) {}
             webView = null;
         }
         super.onDestroy();

@@ -19,9 +19,9 @@ def resolvedStore = rootProject.file(storeFilePath)
 if (!resolvedStore.exists()) {
     resolvedStore = demoStoreFile
 }
-def storePass = keystoreProps.getProperty("storePassword", "apexcare1000")
+def storePass = keystoreProps.getProperty("storePassword", "apexcare2026v3")
 def keyAliasName = keystoreProps.getProperty("keyAlias", "apexcare")
-def keyPass = keystoreProps.getProperty("keyPassword", "apexcare1000")
+def keyPass = keystoreProps.getProperty("keyPassword", "apexcare2026v3")
 
 android {
     namespace "com.apexcare.app"
@@ -29,10 +29,10 @@ android {
 
     defaultConfig {
         applicationId "com.apexcare.app"
-        // Android 7.0+ — covers modern Samsung One UI (A/S/Z/F/M series)
-        minSdk 24
+        // Galaxy S6 / S7 flagships (Lollipop 5.0) through current One UI
+        minSdk 21
         targetSdk 34
-        versionCode 24
+        versionCode 25
         versionName "1.0.4"
 
         // Universal APK: all ABIs, all densities (no splits)
@@ -94,7 +94,7 @@ android {
 
     packaging {
         jniLibs {
-            useLegacyPackaging false
+            useLegacyPackaging true
         }
         resources {
             excludes += [
