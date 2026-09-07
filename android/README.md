@@ -1,6 +1,6 @@
-# Apex Care — Android (v1.0.0)
+# Apex Care - Android (v1.0.4)
 
-versionCode **18** · package `com.apexcare.app` · minSdk **24** / targetSdk **34**
+versionCode **22** - package `com.apexcare.app` - minSdk **24** / targetSdk **34**
 
 ## Signed universal APK
 
@@ -24,8 +24,8 @@ echo "sdk.dir=$ANDROID_HOME" > local.properties
 
 Output: `app/build/outputs/apk/release/app-release.apk` (signed)
 
-Verify:
+Verify (quiet - do not dump certs):
 
 ```bash
-jarsigner -verify -verbose -certs app/build/outputs/apk/release/app-release.apk
+jarsigner -verify app/build/outputs/apk/release/app-release.apk
 ```

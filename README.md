@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="docs/assets/apex-care-hero.svg" alt="Apex Care — Make RAM Great Again · v1.0.4" width="420" />
+  <img src="docs/assets/apex-care-hero.svg" alt="Apex Care - Make RAM Great Again - v1.0.4" width="420" />
 </p>
 
 <h1 align="center">Apex Care</h1>
-<p align="center"><strong>v1.0.4 · Maintenance</strong><br/>
+<p align="center"><strong>v1.0.4 - Maintenance</strong><br/>
 <em>Make RAM Great Again</em></p>
 
 <p align="center">
@@ -18,15 +18,15 @@ Sideloaded Samsung device care for **One UI**. Accurate free RAM (Device Care mo
 
 ### Download
 
-**[Apex Care v1.0.4](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v1.0.4)** · [ApexCare-v1.0.4.apk](https://github.com/l3g1Xn/apex-samsung-care/releases/download/v1.0.4/ApexCare-v1.0.4.apk)
+**[Apex Care v1.0.4](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v1.0.4)** - [ApexCare-v1.0.4.apk](https://github.com/l3g1Xn/apex-samsung-care/releases/download/v1.0.4/ApexCare-v1.0.4.apk)
 
-Prior: [v1.0.1](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v1.0.1) · [v1.0.0 Full Send](https://github.com/l3g1Xn/apex-samsung-care/releases/tag/v1.0.0)
+v1.0.4 is the **only** GitHub Release. Older APKs and tags are not published.
 
-1. Uninstall any older Apex Care if Android asks  
-2. Install the signed universal APK  
-3. Open → Grant Temporary Root (optional) · Optimize / Clean  
+1. Uninstall any older Apex Care if Android asks
+2. Install the signed universal APK
+3. Open, Grant Temporary Root (optional), Optimize / Clean
 
-Package `com.apexcare.app` · latest APK versionCode **22** / **1.0.4** · minSdk **24** / targetSdk **34** · signed v1+v2+v3
+Package `com.apexcare.app` - versionCode **22** / **1.0.4** - minSdk **24** / targetSdk **34** - signed v1+v2+v3
 
 ---
 
@@ -34,63 +34,33 @@ Package `com.apexcare.app` · latest APK versionCode **22** / **1.0.4** · minSd
 
 | Area | Behavior |
 |------|----------|
-| **RAM** | Device Care model: free = available, used = total − available; marketed total scanned on install |
+| **RAM** | Device Care model: free = available, used = total minus available; marketed total scanned on install |
 | **Optimize / Clean** | Force-closes non-vital apps (`am force-stop` with root; background kill without) |
 | **Grant Temporary Root** | In-process Magisk `su` (no Magisk app switch) or userspace TEMP ROOT (30 min) |
-| **Widget** | Free % primary · used / available GB · Clean action |
-| **Safe** | On-device heuristics · debuggable / outdated SDK signals |
+| **Widget** | Free % primary, used / available GB, Clean action |
+| **Safe** | On-device heuristics, debuggable / outdated SDK signals |
 
-## v1.0.4 (published)
+## v1.0.4 (sole published APK)
 
-Incremental — **not** a Full Send rebrand. Sideload over v1.0.1 (same demo cert, higher versionCode).
+Incremental - **not** a Full Send rebrand. Sideload over any older Apex Care (same demo cert, higher versionCode).
 
 - Bulk Optimize and widget Clean **skip foreground / visible** processes (low-end One UI + Flip cover)
 - Widget no longer `kill -9` by PID and no longer sweeps every `com.samsung.android.app.*` install
 - User protect list (validated packages, cap 80) honored on every force-stop path
 - Protect list: camera, gallery, Samsung Account, Google Wallet, Messages, Secure Folder, Bixby, Quick Share, Android Auto, IMS, Galaxy AI
-- Optimize / batch close sample RAM with `sampleFast` (no 7× sleep after a bulk pass)
+- Optimize / batch close sample RAM with `sampleFast` (no 7x sleep after a bulk pass)
 - PSS lookups capped at 80 running packages for low-RAM A-series
-- CI greps for the new guards; **does not** wipe prior releases
-
-## v1.0.3 maintenance (merged)
-
-Incremental — **not** a Full Send rebrand.
-
-- First-open HW RAM scan is **sleep-free** on the UI thread (`scanUsableRamKbFast`); thorough median stays on the worker
-- Widget Clean runs on a **background executor** (no `Thread.sleep` on the main looper)
-- WebView asset fallback uses **`loadDataWithBaseURL`** (never `file://`)
-- Protect list: Wallet / Pay, Samsung Health, Link to Windows, contacts, clock, Galaxy Registry
-- Force-close path samples RAM with `sampleFast` (no 7× sleep on the binder after each kill)
-- ProGuard keep rules for the JS bridge; drop unused `POST_NOTIFICATIONS`
-- Dependabot ignores AGP / Gradle **major** jumps on the maintenance line
-- CI greps for the new guards; **does not** wipe prior releases
-
-## v1.0.2 (merged, untagged)
-
-- **ANR-safe RAM sample**: `sampleFast` on UI / widget (no `Thread.sleep`); thorough median stays on the JS/worker path
-- **WebViewAssetLoader** (no file-URL access) + 403 intercept for stray network
-- Protect list: Find My, Samsung Account, DeX, Wellbeing, KernelSU / APatch, launchers
-- Widget Clean/Refresh are **explicit-component** only (no implicit broadcast hijack)
-- Packaged UI: SVG nav (no emoji), pause 12s refresh when backgrounded, protect-list inspector
-- CI: extra security greps + Actions bumps; **does not** wipe prior releases
-- Marketing RAM tiers: 10 / 20 / 36 / 48 GB
-
-## v1.0.1 (published)
-
-- Shell **command allowlist** + package-name validation (no injection into `su -c`)
-- Expanded One UI **protect list** (telephony, input, Knox, Magisk, launcher, GMS)
-- WebView **offline** · no file cross-origin · backup disabled
-- CI builds on every `main` push **without** wiping prior releases
-- Diagnostics / health ping + 12s free% refresh for uptime visibility
-- Demo bridge in the packaged UI for offline QA when native is absent
+- Shell command allowlist + package-name validation (no injection into `su -c`)
+- WebView **offline** via `WebViewAssetLoader`; fallback is `loadDataWithBaseURL` (never `file://`)
+- First-open HW RAM scan is sleep-free on the UI thread; widget Clean runs off the main looper
 
 ## Magisk + Temporary Root
 
 Grant Root stays **inside Apex Care**:
-1. Detects Magisk Manager when present  
-2. Boot patched → Magisk Superuser via `su` (overlay only if needed)  
-3. App-only / Superuser empty → userspace TEMP ROOT (30 min)  
-4. Real `am force-stop` only when Magisk grants  
+1. Detects Magisk Manager when present
+2. Boot patched - Magisk Superuser via `su` (overlay only if needed)
+3. App-only / Superuser empty - userspace TEMP ROOT (30 min)
+4. Real `am force-stop` only when Magisk grants
 
 ## Root reality
 
@@ -104,7 +74,7 @@ echo "sdk.dir=$ANDROID_HOME" > local.properties
 ./gradlew assembleRelease
 ```
 
-Release tags (`v*`) publish a new APK asset; they **do not** delete prior releases.
+A `v*` tag replaces the **sole** GitHub Release (older tags/APKs are dropped). Actions build logs are deleted when the job finishes.
 
 ## Safety
 
@@ -113,4 +83,4 @@ See [SECURITY.md](SECURITY.md). Protect list covers core OS, telephony, keyboard
 ---
 
 **Not affiliated with Samsung, Google, or Magisk.**  
-**Apex Care v1.0.3 — Make RAM Great Again.**
+**Apex Care v1.0.4 - Make RAM Great Again.**

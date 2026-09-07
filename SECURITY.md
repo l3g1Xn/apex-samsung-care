@@ -1,16 +1,16 @@
-# Security Policy — Apex Care
+# Security Policy - Apex Care
 
-**Make RAM Great Again** · `com.apexcare.app`
+**Make RAM Great Again** - `com.apexcare.app`
 
 ## Supported versions
 
 | Version | Supported |
 |---------|-----------|
-| 1.0.4   | Yes — current published APK |
-| 1.0.3   | Source-only — upgrade to 1.0.4 |
-| 1.0.2   | Source-only — upgrade to 1.0.4 |
-| 1.0.1   | Superseded — upgrade to 1.0.4 (same demo cert) |
-| 1.0.0   | Superseded — upgrade recommended |
+| 1.0.4   | Yes - **sole** published APK |
+| 1.0.3   | No GitHub Release - upgrade to 1.0.4 |
+| 1.0.2   | No GitHub Release - upgrade to 1.0.4 |
+| 1.0.1   | No GitHub Release - upgrade to 1.0.4 (same demo cert) |
+| 1.0.0   | No GitHub Release - upgrade recommended |
 | < 1.0.0 | No |
 
 ## What this app does (threat model)
@@ -28,7 +28,7 @@ It does **not** phone home, upload package lists, or auto-root a stock device.
 - **Root command allowlist** (`id`, `am force-stop <pkg>`, `cmd activity force-stop <pkg>`, `kill -9 <pid>`)
 - **Expanded protect list** (One UI telephony, input, Knox, Magisk/KernelSU/APatch, launchers, Find My, Samsung Account, DeX, GMS, Wallet, Health, camera, gallery, IMS, Android Auto, Bixby, Secure Folder, Galaxy AI, Quick Share)
 - **User protect list** (validated package names, cap 80, SharedPreferences)
-- **Bulk Optimize / widget Clean skip foreground & visible** processes
+- **Bulk Optimize / widget Clean skip foreground and visible** processes
 - **Widget no longer `kill -9` by PID** and no longer sweeps all `com.samsung.android.app.*` installs
 - **WebView locked down**: `WebViewAssetLoader` (no file-URL access), no universal file access, mixed content never, stray HTTPS 403
 - **Widget custom actions** are explicit-component only (not exported as implicit broadcasts)
@@ -47,9 +47,13 @@ Please do **not** open PRs that demonstrate live RCE payloads against end-user d
 
 ## Sideload signing
 
-Release APKs use a **demo/sideload keystore** committed for CI reproducibility.  
+Release APKs use a **demo/sideload keystore** committed for CI reproducibility.
 Treat it as public. For distribution you control, generate your own keystore and use `android/keystore.properties` (gitignored).
 
 ## Magisk / root
 
 No APK can grant `uid=0` without an existing root manager. Apex Care only requests Magisk Superuser when Magisk is already present; otherwise it uses userspace TEMP ROOT (non-uid0 cleanup helpers).
+
+## Build logs
+
+GitHub Actions logs for Publish / CI are deleted when the job finishes. Do not re-enable `jarsigner -verbose -certs` or keystore directory listings in workflows.
