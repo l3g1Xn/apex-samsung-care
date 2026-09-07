@@ -54,6 +54,10 @@ jobs:
           grep -q "loadDataWithBaseURL" android/app/src/main/java/com/apexcare/app/MainActivity.java
           grep -q "scanUsableRamKbFast" android/app/src/main/java/com/apexcare/app/RamMetrics.java
           grep -q "CLEAN_EXEC" android/app/src/main/java/com/apexcare/app/RamCleanerWidget.java
+          grep -q "USER_PREFS" android/app/src/main/java/com/apexcare/app/ProtectedPackages.java
+          grep -q "IMPORTANCE_VISIBLE" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
+          grep -q "addUserProtect" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
           ! grep -q "setAllowUniversalAccessFromFileURLs(true)" android/app/src/main/java/com/apexcare/app/MainActivity.java
           ! grep -q "ACTION_CLEAN_RAM" android/app/src/main/AndroidManifest.xml
+          ! grep -F 'kill -9 " + p.pid' android/app/src/main/java/com/apexcare/app/RamCleanerWidget.java
           echo "security guards OK"

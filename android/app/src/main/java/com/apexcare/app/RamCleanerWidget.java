@@ -7,8 +7,6 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.RemoteViews;
@@ -131,7 +129,7 @@ public class RamCleanerWidget extends AppWidgetProvider {
         boolean hasRoot;
     }
 
-    /** Force-close non-protected running packages (validated package names only). */
+    /** Force-close non-protected background packages (validated names only). */
     private static CleanResult runForceClean(Context context) {
         CleanResult cr = new CleanResult();
         long before = readAvailBytes(context);
@@ -145,16 +143,16 @@ public class RamCleanerWidget extends AppWidgetProvider {
             if (procs != null) {
                 for (ActivityManager.RunningAppProcessInfo p : procs) {
                     if (p.pkgList == null) continue;
+                    if (p.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) {
+                        continue;
+                    }
                     for (String pkg : p.pkgList) {
                         if (seen.contains(pkg)) continue;
                         if (!ProtectedPackages.isValidPackage(pkg)) continue;
                         if (ProtectedPackages.isProtected(context, pkg)) continue;
                         seen.add(pkg);
                         if (cr.hasRoot && magisk.isRealRoot()) {
-                            magisk.forceStopPackage(pkg);
-                            if (p.pid > 0) {
-                                magisk.run("kill -9 " + p.pid);
-                            }
+                            magisk.forceStopPackage(context, pkg);
                         } else {
                             try {
                                 am.killBackgroundProcesses(pkg);
@@ -163,38 +161,6 @@ public class RamCleanerWidget extends AppWidgetProvider {
                         cr.closed++;
                     }
                 }
-            }
-            // Non-vital OEM helpers (capped)
-            try {
-                PackageManager pm = context.getPackageManager();
-                List<ApplicationInfo> apps = pm.getInstalledApplications(0);
-                int extra = 0;
-                for (ApplicationInfo ai : apps) {
-                    if (extra >= 40) break;
-                    if (!ProtectedPackages.isValidPackage(ai.packageName)) continue;
-                    if (ProtectedPackages.isProtected(context, ai.packageName) || seen.contains(ai.packageName)) {
-                        continue;
-                    }
-                    String p = ai.packageName.toLowerCase(Locale.US);
-                    boolean system = (ai.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
-                    if (system && !(p.contains("game") || p.contains("tips")
-                            || p.contains("theme") || p.startsWith("com.samsung.android.app."))) {
-                        continue;
-                    }
-                    // Never auto-clean Device Care / Knox / launcher via OEM pass
-                    if (p.contains("lool") || p.contains("knox") || p.contains("launcher")) continue;
-                    if (cr.hasRoot && magisk.isRealRoot()) {
-                        magisk.forceStopPackage(ai.packageName);
-                    } else {
-                        try {
-                            am.killBackgroundProcesses(ai.packageName);
-                        } catch (Exception ignored) {}
-                    }
-                    cr.closed++;
-                    seen.add(ai.packageName);
-                    extra++;
-                }
-            } catch (Exception ignored) {
             }
             System.gc();
             try {
