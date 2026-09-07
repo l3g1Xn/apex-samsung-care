@@ -14,6 +14,8 @@ import android.os.Looper;
 import android.widget.RemoteViews;
 import android.widget.Toast;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -25,6 +27,11 @@ public class RamCleanerWidget extends AppWidgetProvider {
     public static final String ACTION_REFRESH = "com.apexcare.app.ACTION_REFRESH";
 
     private static final Handler HANDLER = new Handler(Looper.getMainLooper());
+    private static final ExecutorService CLEAN_EXEC = Executors.newSingleThreadExecutor(r -> {
+        Thread th = new Thread(r, "apex-widget-clean");
+        th.setDaemon(true);
+        return th;
+    });
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
@@ -40,15 +47,17 @@ public class RamCleanerWidget extends AppWidgetProvider {
         if (ACTION_CLEAN_RAM.equals(action)) {
             setAllButtons(context, "…");
             HANDLER.postDelayed(() -> setAllButtons(context, "···"), 160);
-            HANDLER.postDelayed(() -> {
+            HANDLER.postDelayed(() -> CLEAN_EXEC.execute(() -> {
                 CleanResult r = runForceClean(context);
-                refreshAll(context);
-                setAllButtons(context, "Done");
-                String msg = r.hasRoot
-                        ? "Force-closed " + r.closed + " · +" + String.format(Locale.US, "%.1f", r.freedGb) + " GB free"
-                        : "Closed " + r.closed + " bg · +" + String.format(Locale.US, "%.1f", r.freedGb) + " GB";
-                Toast.makeText(context, "Apex Care · " + msg, Toast.LENGTH_SHORT).show();
-            }, 400);
+                HANDLER.post(() -> {
+                    refreshAll(context);
+                    setAllButtons(context, "Done");
+                    String msg = r.hasRoot
+                            ? "Force-closed " + r.closed + " · +" + String.format(Locale.US, "%.1f", r.freedGb) + " GB free"
+                            : "Closed " + r.closed + " bg · +" + String.format(Locale.US, "%.1f", r.freedGb) + " GB";
+                    Toast.makeText(context, "Apex Care · " + msg, Toast.LENGTH_SHORT).show();
+                });
+            }), 400);
             HANDLER.postDelayed(() -> setAllButtons(context, context.getString(R.string.widget_clean)), 1700);
         } else if (ACTION_REFRESH.equals(action)
                 || AppWidgetManager.ACTION_APPWIDGET_UPDATE.equals(action)) {

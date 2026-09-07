@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
   <meta name="theme-color" content="#07080a" />
-  <title>Apex Care v1.0.2</title>
+  <title>Apex Care v1.0.3</title>
   <style>
     :root {
       --bg: #07080a; --surface: #101214; --elevated: #161a1e; --subtle: #1c2228;
@@ -207,12 +207,12 @@
   </div>
   <h1>Apex Care</h1>
   <p>Make RAM Great Again</p>
-  <div class="ver">v1.0.2 · Maintenance</div>
+  <div class="ver">v1.0.3 · Maintenance</div>
 </div>
 <div class="app" id="app"></div>
 <script>
-const VERSION = "v1.0.2";
-const VERSION_CODE = 20;
+const VERSION = "v1.0.3";
+const VERSION_CODE = 21;
 const PACKAGE_ID = "com.apexcare.app";
 const GITHUB = "https://github.com/l3g1Xn/apex-samsung-care";
 
@@ -360,6 +360,13 @@ const CORE_PROTECT = new Set([
   "com.samsung.android.forest", "com.sec.android.app.setupwizard",
   "com.topjohnwu.magisk", "io.github.vvb2060.magisk", "io.github.huskydg.magisk",
   "me.weishu.kernelsu", "com.rifsxd.ksunext", "me.bmax.apatch",
+  "com.samsung.android.spay", "com.samsung.android.spayfw",
+  "com.samsung.android.samsungpay.gear", "com.sec.android.app.shealth",
+  "com.samsung.android.heartplugin", "com.samsung.android.mdx",
+  "com.samsung.android.rubin.app", "com.samsung.android.app.galaxyregistry",
+  "com.samsung.android.knox.kpu", "com.samsung.android.app.contacts",
+  "com.android.contacts", "com.samsung.android.calendar",
+  "com.sec.android.app.clockpackage", "com.google.android.apps.nexuslauncher",
   PACKAGE_ID
 ]);
 
@@ -440,6 +447,9 @@ function isProtected(pkg) {
   if (lower.indexOf("permissioncontroller") >= 0) return true;
   if (lower.indexOf("samsungpass") >= 0 || lower.indexOf("desktoplauncher") >= 0) return true;
   if (lower.indexOf("safetyassurance") >= 0) return true;
+  if (lower.indexOf("samsungpay") >= 0 || lower.indexOf(".spay") >= 0) return true;
+  if (lower.indexOf("shealth") >= 0 || lower.indexOf("heartplugin") >= 0) return true;
+  if (lower.indexOf("galaxyregistry") >= 0) return true;
   return false;
 }
 function computeHealthScore() {

@@ -99,7 +99,21 @@ public final class ProtectedPackages {
                 "io.github.vvb2060.magisk.alpha",
                 "me.weishu.kernelsu",
                 "com.rifsxd.ksunext",
-                "me.bmax.apatch"
+                "me.bmax.apatch",
+                "com.samsung.android.spay",
+                "com.samsung.android.spayfw",
+                "com.samsung.android.samsungpay.gear",
+                "com.sec.android.app.shealth",
+                "com.samsung.android.heartplugin",
+                "com.samsung.android.mdx",
+                "com.samsung.android.rubin.app",
+                "com.samsung.android.app.galaxyregistry",
+                "com.samsung.android.knox.kpu",
+                "com.samsung.android.app.contacts",
+                "com.android.contacts",
+                "com.samsung.android.calendar",
+                "com.sec.android.app.clockpackage",
+                "com.google.android.apps.nexuslauncher"
         };
         Collections.addAll(s, pkgs);
         CORE = Collections.unmodifiableSet(s);
@@ -157,6 +171,10 @@ public final class ProtectedPackages {
         if (lower.contains("samsungpass") || lower.startsWith("com.osp.app.signin")) return true;
         if (lower.contains("desktoplauncher") || lower.contains("desktopsystemui")) return true;
         if (lower.startsWith("com.samsung.android.fmm") || lower.contains("safetyassurance")) return true;
+        if (lower.startsWith("com.samsung.android.spay") || lower.contains("samsungpay")) return true;
+        if (lower.contains("shealth") || lower.contains("heartplugin")) return true;
+        if (lower.startsWith("com.samsung.android.mdx")) return true;
+        if (lower.contains("galaxyregistry")) return true;
         return false;
     }
 
