@@ -51,6 +51,9 @@ jobs:
           grep -q "isValidPackage" android/app/src/main/java/com/apexcare/app/ProtectedPackages.java
           grep -q "sampleFast" android/app/src/main/java/com/apexcare/app/RamMetrics.java
           grep -q "WebViewAssetLoader" android/app/src/main/java/com/apexcare/app/MainActivity.java
+          grep -q "loadDataWithBaseURL" android/app/src/main/java/com/apexcare/app/MainActivity.java
+          grep -q "scanUsableRamKbFast" android/app/src/main/java/com/apexcare/app/RamMetrics.java
+          grep -q "CLEAN_EXEC" android/app/src/main/java/com/apexcare/app/RamCleanerWidget.java
           ! grep -q "setAllowUniversalAccessFromFileURLs(true)" android/app/src/main/java/com/apexcare/app/MainActivity.java
           ! grep -q "ACTION_CLEAN_RAM" android/app/src/main/AndroidManifest.xml
           echo "security guards OK"

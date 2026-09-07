@@ -83,7 +83,7 @@ public final class RamMetrics {
     private static RamMetrics sampleInternal(Context context, boolean thorough) {
         Context app = context != null ? context.getApplicationContext() : null;
 
-        long physicalKb = ensurePhysicalTotal(app);
+        long physicalKb = ensurePhysicalTotal(app, thorough);
         long usableKb = ensureUsableTotal(app);
 
         ProcMem proc = thorough ? medianProcMem() : readProcMemOnce();
@@ -151,7 +151,7 @@ public final class RamMetrics {
         return r;
     }
 
-    private static long ensurePhysicalTotal(Context app) {
+    private static long ensurePhysicalTotal(Context app, boolean allowSleep) {
         if (app == null) {
             long u = readProcMemOnce().totalKb;
             return u > 0 ? mapToMarketedKb(u) : 0;
@@ -166,7 +166,9 @@ public final class RamMetrics {
             return cached;
         }
 
-        long usable = scanUsableRamKb(app);
+        // UI / widget path: single sample, no Thread.sleep (ANR-safe on low-end One UI).
+        // Thorough path (JS/worker) may multi-sample with short sleeps.
+        long usable = allowSleep ? scanUsableRamKb(app) : scanUsableRamKbFast(app);
         long marketed = mapToMarketedKb(usable);
         marketed = coerceKnownTiers(marketed);
 
@@ -193,6 +195,14 @@ public final class RamMetrics {
         long cached = sp.getLong(KEY_USABLE_KB, 0L);
         if (cached > 0) return cached;
         return scanUsableRamKb(app);
+    }
+
+    /** Single-shot usable RAM — never sleeps. Safe on the main thread. */
+    private static long scanUsableRamKbFast(Context app) {
+        ProcMem p = readProcMemOnce();
+        if (p.totalKb > 0) return p.totalKb;
+        AmMem am = readActivityManager(app);
+        return am.totalKb;
     }
 
     private static long scanUsableRamKb(Context app) {

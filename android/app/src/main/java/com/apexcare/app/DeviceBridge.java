@@ -115,13 +115,14 @@ public class DeviceBridge {
                     method = "userspace_temp_kill";
                 }
             }
+            JSONObject memJson = RamMetrics.sampleFast(context).toJson(elevated);
             return new JSONObject()
                     .put("ok", true)
                     .put("hasRoot", elevated)
                     .put("realRoot", real)
                     .put("mode", magisk.getMode())
                     .put("method", method)
-                    .put("mem", new JSONObject(getMemoryStats()))
+                    .put("mem", memJson)
                     .toString();
         } catch (Exception e) {
             return errorJson(e);

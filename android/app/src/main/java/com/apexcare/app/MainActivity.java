@@ -24,6 +24,9 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.webkit.WebViewAssetLoader;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -67,6 +70,7 @@ public class MainActivity extends AppCompatActivity {
                 .build();
 
         webView = findViewById(R.id.webview);
+        WebView.setWebContentsDebuggingEnabled(false);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -128,9 +132,7 @@ public class MainActivity extends AppCompatActivity {
                     String failing = request.getUrl() != null ? request.getUrl().toString() : "";
                     if (failing.startsWith("https://appassets.androidplatform.net")
                             && webView != null) {
-                        new Handler(Looper.getMainLooper()).post(() -> {
-                            if (webView != null) webView.loadUrl(ASSET_FILE);
-                        });
+                        new Handler(Looper.getMainLooper()).post(() -> loadFromAssets());
                     }
                 }
             }
@@ -171,6 +173,27 @@ public class MainActivity extends AppCompatActivity {
                 setEnabled(true);
             }
         });
+    }
+
+    /** Fallback without file:// — keeps allowFileAccess=false. */
+    private void loadFromAssets() {
+        if (webView == null) return;
+        try (InputStream in = getAssets().open("www/index.html");
+             ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[4096];
+            int n;
+            while ((n = in.read(buf)) >= 0) bos.write(buf, 0, n);
+            String html = bos.toString(StandardCharsets.UTF_8.name());
+            webView.loadDataWithBaseURL(
+                    ASSET_HTTPS,
+                    html,
+                    "text/html",
+                    "utf-8",
+                    null);
+            Log.i(TAG, "Loaded UI via loadDataWithBaseURL fallback");
+        } catch (Exception e) {
+            Log.e(TAG, "asset fallback failed", e);
+        }
     }
 
     private static WebResourceResponse blocked() {
