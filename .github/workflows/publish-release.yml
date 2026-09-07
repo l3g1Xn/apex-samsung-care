@@ -1,7 +1,7 @@
 name: Publish Release
 
-# Only on explicit version tags — never re-wipe sole release.
-# Avoids redundant Full Send re-publishes of the same premise.
+# Tag cuts the sole public APK. Older GitHub releases/tags are dropped.
+# Build logs are deleted when the job finishes so signing detail never stays public.
 on:
   push:
     tags:
@@ -9,12 +9,13 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag (e.g. v1.0.1)"
+        description: "Release tag (e.g. v1.0.4)"
         required: true
-        default: "v1.0.1"
+        default: "v1.0.4"
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   release:
@@ -33,9 +34,7 @@ jobs:
         run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 
       - name: Verify demo keystore present
-        run: |
-          test -f android/keystore/apex-release.jks
-          ls -la android/keystore/
+        run: test -f android/keystore/apex-release.jks
 
       - uses: gradle/actions/setup-gradle@v4
 
@@ -50,14 +49,11 @@ jobs:
           fi
           TAG="${TAG#refs/tags/}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          # ApexCare-v1.0.1.apk from v1.0.1
-          NAME="ApexCare-${TAG}.apk"
-          echo "apk=$NAME" >> "$GITHUB_OUTPUT"
-          echo "Resolved $TAG -> $NAME"
+          echo "apk=ApexCare-${TAG}.apk" >> "$GITHUB_OUTPUT"
 
       - name: Build signed universal release APK
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --quiet
 
       - name: Stage + verify signature
         run: |
@@ -67,27 +63,27 @@ jobs:
           test -f "$SRC"
           APK="dist/${{ steps.ver.outputs.apk }}"
           cp "$SRC" "$APK"
-          ls -lh "$APK"
+          test -s "$APK"
 
-          jarsigner -verify -verbose -certs "$APK" | tee /tmp/jsign.txt
+          jarsigner -verify "$APK" > /tmp/jsign.txt
           grep -qi "jar verified" /tmp/jsign.txt
 
-          unzip -l "$APK" | grep -E 'META-INF/.*\.(RSA|SF|MF)' | tee /tmp/meta.txt
+          unzip -l "$APK" | grep META-INF | grep -E 'RSA|SF|MF' > /tmp/meta.txt
           test -s /tmp/meta.txt
 
-          python3 - <<PY
-          data=open("$APK","rb").read()
-          assert data.rfind(b"APK Sig Block 42") != -1, "missing APK Signature Scheme v2/v3 block"
-          print("APK Sig Block OK")
+          python3 - <<'PY'
+          import sys
+          apk = open(sys.argv[1], 'rb').read()
+          assert apk.rfind(b'APK Sig Block 42') != -1, 'missing APK Signature Scheme v2/v3 block'
           PY
+            "$APK"
 
           APKSIGNER=$(find "$ANDROID_HOME" -name apksigner 2>/dev/null | head -1 || true)
           if [ -n "$APKSIGNER" ]; then
-            "$APKSIGNER" verify --verbose "$APK"
+            "$APKSIGNER" verify "$APK" >/dev/null
           fi
-          echo "SIGNED UNIVERSAL APK READY"
 
-      - name: Publish release (non-destructive)
+      - name: Publish sole release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
@@ -101,20 +97,45 @@ jobs:
 
             Maintenance / security build for **Make RAM Great Again**.
 
-            Package `com.apexcare.app` · signed universal (v1 + v2 + v3)
+            Package `com.apexcare.app` - signed universal (v1 + v2 + v3)
 
             ### Install
             1. Uninstall older Apex Care if prompted
             2. Install **${{ steps.ver.outputs.apk }}** only
-            3. Open → check free% vs Samsung Device Care
+            3. Open, check free% vs Samsung Device Care
             4. Optional: Grant Temporary Root (Magisk su in-process)
 
             ### Safety
             - Package-name allowlist before any `am force-stop`
             - Expanded One UI protect list
             - WebView offline + no file cross-origin
-            - Demo signing for sideload — not Play Store
+            - Demo signing for sideload - not Play Store
 
             **Not affiliated with Samsung, Google, or Magisk.**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Drop every other GitHub release and tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEEP: ${{ steps.ver.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release list --limit 100 --json tagName --jq '.[].tagName' | while IFS= read -r t; do
+            [ -z "$t" ] && continue
+            [ "$t" = "$KEEP" ] && continue
+            gh release delete "$t" --yes --cleanup-tag || gh release delete "$t" --yes || true
+          done
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags" --jq '.[].ref' | while IFS= read -r ref; do
+            tag="${ref#refs/tags/}"
+            [ -z "$tag" ] && continue
+            [ "$tag" = "$KEEP" ] && continue
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${tag}" || true
+          done
+
+      - name: Scrub Actions logs
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/${{ github.run_id }}/logs" || true
