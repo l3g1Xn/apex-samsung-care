@@ -43,7 +43,7 @@ jobs:
       - name: Guard - no shell injection helpers
         run: |
           set -euo pipefail
-          grep -q "forceStopPackage" android/app/src/main/java/com/apexcare/app/DeviceBridge.java
+          grep -q "forceStopPackage" android/app/src/main/java/com/apexcare/app/MagiskRoot.java
           grep -q "isSafeRootCommand" android/app/src/main/java/com/apexcare/app/MagiskRoot.java
           grep -q "isValidPackage" android/app/src/main/java/com/apexcare/app/ProtectedPackages.java
           grep -q "sampleFast" android/app/src/main/java/com/apexcare/app/RamMetrics.java

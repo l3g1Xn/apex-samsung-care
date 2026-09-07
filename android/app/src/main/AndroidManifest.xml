@@ -21,7 +21,7 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
-    <!-- Dropped GET_TASKS (deprecated / restricted), unused PACKAGE_USAGE_STATS, and storage perms unused by RAM path -->
+    <!-- Dropped GET_TASKS (deprecated / restricted) and unused storage / usage-stats perms -->
 
     <queries>
         <intent>
