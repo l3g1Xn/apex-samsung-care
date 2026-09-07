@@ -7,6 +7,7 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.RemoteViews;
@@ -105,18 +106,24 @@ public class RamCleanerWidget extends AppWidgetProvider {
         Intent cleanIntent = new Intent(context, RamCleanerWidget.class);
         cleanIntent.setAction(ACTION_CLEAN_RAM);
         PendingIntent cleanPi = PendingIntent.getBroadcast(
-                context, appWidgetId, cleanIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                context, appWidgetId, cleanIntent, piFlags());
         views.setOnClickPendingIntent(R.id.widget_clean_btn, cleanPi);
 
         Intent openApp = new Intent(context, MainActivity.class);
         openApp.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent openPi = PendingIntent.getActivity(
-                context, appWidgetId + 1000, openApp,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                context, appWidgetId + 1000, openApp, piFlags());
         views.setOnClickPendingIntent(R.id.widget_root, openPi);
 
         manager.updateAppWidget(appWidgetId, views);
+    }
+
+    private static int piFlags() {
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= 23) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        return flags;
     }
 
     private static boolean hasRoot() {

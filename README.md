@@ -22,11 +22,12 @@ Sideloaded Samsung device care for **One UI**. Accurate free RAM (Device Care mo
 
 v1.0.4 is the **only** GitHub Release. Older APKs and tags are not published.
 
-1. Uninstall any older Apex Care if Android asks
-2. Install the signed universal APK
-3. Open, Grant Temporary Root (optional), Optimize / Clean
+1. **Uninstall** any older Apex Care (signing certificate was rotated)
+2. Install the signed universal APK (v1 + v2 + v3)
+3. If Play Protect says Uncommon: More details → Install anyway
+4. Open, Grant Temporary Root (optional), Optimize / Clean
 
-Package `com.apexcare.app` - versionCode **24** / **1.0.4** - minSdk **24** / targetSdk **34** - signed v1+v2+v3
+Package `com.apexcare.app` - versionCode **25** / **1.0.4** - minSdk **21** / targetSdk **34** - signed v1+v2+v3
 
 ---
 
